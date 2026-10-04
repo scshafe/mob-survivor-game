@@ -1,5 +1,6 @@
 #include "mob_survivor/world.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace mob_survivor {
