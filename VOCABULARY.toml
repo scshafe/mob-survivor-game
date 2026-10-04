@@ -11,3 +11,78 @@ schema = 1
 # """
 # refs = ["docs/design.md#managed-section"] # optional: repo-relative paths, #anchor optional; must exist
 # aliases = ["marker block"]                # optional: search words (not slugs, never another term's slug)
+
+[[term]]
+slug = "mob"
+title = "Mob"
+definition = """
+One marching unit on the field: a grunt, runner, giant or brute of one team. A mob
+with more than one hit point is a squad and stands for that many grunts. Not a
+player: players own cannons, and the AI owns the enemy waves in a campaign.
+"""
+refs = ["include/mob_survivor/world.hpp", "docs/design.md"]
+aliases = ["unit", "squad", "grunt"]
+
+[[term]]
+slug = "gate"
+title = "Gate"
+definition = """
+A bar across the lane that changes each mob of the teams it serves once, as it
+crosses: multiply (xN), add (+N) or halve (/2). Gates may slide; a gate serving
+both teams is drawn with a purple edge.
+"""
+refs = ["include/mob_survivor/level.hpp", "docs/design.md"]
+aliases = ["multiplier"]
+
+[[term]]
+slug = "match"
+title = "Match"
+definition = """
+One game in a room from start to game over: a campaign (levels until the
+players' base falls, with upgrade cards between levels) or one versus round.
+Deterministic, like the world it runs. Not a level: a campaign match has many.
+"""
+refs = ["include/mob_survivor/match.hpp"]
+aliases = ["game", "round"]
+
+[[term]]
+slug = "room"
+title = "Room"
+definition = """
+A group of players behind a four-letter code, with a host, seats (at most four)
+and watchers; it runs one match at a time and returns to its lobby afterwards.
+Public rooms are listed on the home screen.
+"""
+refs = ["src/net/lobby.hpp", "docs/protocol.md"]
+aliases = ["lobby", "code"]
+
+[[term]]
+slug = "snapshot"
+title = "Snapshot"
+definition = """
+The binary message the server sends 15 times a second with everything that moves:
+cannons, gate and saw positions, bombs, events and every mob. The client
+interpolates between two of them. Static level data travels once, as JSON.
+"""
+refs = ["docs/protocol.md", "src/net/protocol.cpp", "web/js/snapshot.js"]
+aliases = ["state update"]
+
+[[term]]
+slug = "upgrade-card"
+title = "Upgrade card"
+definition = """
+A per-player power-up chosen between campaign levels, one of three offered at
+random (rapid fire, twin barrel, fortify, ...). Some stack up to a limit.
+"""
+refs = ["include/mob_survivor/upgrades.hpp", "docs/design.md"]
+aliases = ["card", "perk"]
+
+[[term]]
+slug = "frenzy"
+title = "Frenzy"
+definition = """
+The versus overtime from 2:30: every gate gets stronger (xN gives one more, +N
+half again) until the 4:00 time limit, when the healthier base wins.
+"""
+refs = ["docs/design.md"]
+aliases = ["overtime"]

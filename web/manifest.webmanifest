@@ -1,0 +1,10 @@
+{
+  "name": "Mob Survivor",
+  "short_name": "Mob Survivor",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

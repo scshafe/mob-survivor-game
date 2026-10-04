@@ -34,3 +34,27 @@ jobs:
       - name: Verify (dev.toml [verify] command)
         run: |
           ./scripts/verify-linux
+
+  # The deployable image: it builds (running the tests inside), starts, and
+  # serves the client. Nothing is pushed anywhere; deploying is by hand (see
+  # docs/deploy-tailnet.md).
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # actions/checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Build the image
+        run: docker build -t mob-survivor:ci .
+      - name: Smoke-test the image
+        run: |
+          docker run -d --name mob-survivor -p 127.0.0.1:8080:8080 --read-only --cap-drop ALL mob-survivor:ci
+          for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/healthz && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8080/ | grep -q '<title>Mob Survivor</title>'
+          curl -fsS http://127.0.0.1:8080/api/status
+          docker logs mob-survivor
+          docker rm -f mob-survivor
+      - name: Check the tailnet stack
+        run: TS_AUTHKEY=placeholder docker compose -f deploy/tailnet/compose.yaml config --quiet
