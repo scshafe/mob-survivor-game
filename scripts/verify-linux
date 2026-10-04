@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# The one command that verifies this repository (dev.toml [verify], run by CI
+# and by hand): a clean configure, a warnings-as-errors build, and the tests.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+build_dir="${MOB_SURVIVOR_BUILD_DIR:-build/verify}"
+rm -rf "$build_dir"
+cmake -S . -B "$build_dir" -DCMAKE_BUILD_TYPE=Debug
+cmake --build "$build_dir" --parallel
+ctest --test-dir "$build_dir" --output-on-failure
+"$build_dir/mob-survivor-game"
