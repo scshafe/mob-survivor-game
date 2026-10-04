@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Mob Survivor</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <canvas id="arena" aria-label="Game arena"></canvas>
+
+    <!-- Home -->
+    <section id="home" class="screen" hidden>
+      <div class="home-inner">
+        <header class="brand">
+          <div class="logo" aria-hidden="true"><span class="dot b"></span><span class="dot b"></span><span class="dot r"></span></div>
+          <h1>MOB<br />SURVIVOR</h1>
+          <p class="tagline">Fire your mob, multiply it through the gates, crush the enemy base.</p>
+        </header>
+
+        <label class="field name-field">
+          <span>Your name</span>
+          <input id="name-input" maxlength="16" autocomplete="nickname" placeholder="Name" />
+        </label>
+
+        <div class="play-grid">
+          <button class="big-btn primary" id="btn-solo">
+            <span class="icon">▶</span><span><b>Play solo</b><small>Campaign: how far can you go?</small></span>
+          </button>
+          <button class="big-btn coop" id="btn-coop">
+            <span class="icon">🤝</span><span><b>Co-op room</b><small>Up to 4 friends vs the horde</small></span>
+          </button>
+          <button class="big-btn versus" id="btn-versus">
+            <span class="icon">⚔</span><span><b>Versus room</b><small>1v1 or 2v2, bots fill gaps</small></span>
+          </button>
+          <button class="big-btn duel" id="btn-duel">
+            <span class="icon">🤖</span><span><b>Quick duel</b><small>Versus against a bot, now</small></span>
+          </button>
+        </div>
+
+        <form id="join-form" class="join-row">
+          <input id="join-code" maxlength="4" placeholder="CODE" autocapitalize="characters" autocomplete="off" aria-label="Room code" />
+          <button type="submit" class="btn">Join room</button>
+        </form>
+
+        <div class="panels">
+          <section class="panel">
+            <h2>Open rooms</h2>
+            <ul id="room-list" class="room-list"><li class="muted">No open rooms yet.</li></ul>
+          </section>
+          <section class="panel">
+            <h2>Hall of fame</h2>
+            <ol id="board-list" class="board-list"><li class="muted">No runs yet. Be the first.</li></ol>
+          </section>
+        </div>
+
+        <details class="panel how">
+          <summary>How to play</summary>
+          <ul>
+            <li><b>Drag</b> (or move the mouse) to slide your cannon; <b>hold</b> to fire. Keys: <kbd>A</kbd>/<kbd>D</kbd> or arrows, <kbd>Space</kbd>.</li>
+            <li>Gates change every mob that runs through: <b class="c-mul">×N</b> multiplies, <b class="c-add">+N</b> adds, <b class="c-half">÷2</b> culls half. Purple-edged gates (⚔) help <i>both</i> sides.</li>
+            <li>Mobs that touch enemies trade blows one for one. Reach the far wall to damage the base.</li>
+            <li>Firing charges a <b>Giant</b>: launch it with the crown button (<kbd>G</kbd>). It tramples whole squads.</li>
+            <li><b>Bomb</b>: tap the bomb button, then tap the field (or right-click, or <kbd>B</kbd> at the cursor).</li>
+            <li>Watch out for saw blades, bosses every fifth level, and the Frenzy at 2:30 in versus.</li>
+            <li>Between campaign levels, each player picks one of three upgrade cards.</li>
+          </ul>
+        </details>
+        <footer class="foot"><span id="conn-state" class="muted">Connecting…</span><button class="link" id="btn-mute-home">🔊 Sound on</button></footer>
+      </div>
+    </section>
+
+    <!-- Room lobby -->
+    <section id="lobby" class="screen" hidden>
+      <div class="lobby-inner">
+        <div class="lobby-head">
+          <button class="btn ghost" id="btn-leave-lobby">← Leave</button>
+          <div class="code-box">
+            <small id="lobby-mode">Co-op campaign</small>
+            <div class="code" id="lobby-code">----</div>
+            <button class="link" id="btn-copy-link">Copy invite link</button>
+          </div>
+        </div>
+        <div id="lobby-teams" class="teams"></div>
+        <p id="lobby-hint" class="muted center"></p>
+        <div class="lobby-actions" id="lobby-actions"></div>
+      </div>
+    </section>
+
+    <!-- In-game HUD -->
+    <section id="hud" hidden>
+      <div class="hud-top">
+        <button class="hud-btn" id="btn-quit" title="Leave the match">✕</button>
+        <div class="hud-title"><b id="hud-level">Level 1</b><small id="hud-sub"></small></div>
+        <div class="hud-right">
+          <span id="hud-ping" class="muted"></span>
+          <button class="hud-btn" id="btn-emote" title="Emotes">😀</button>
+          <button class="hud-btn" id="btn-mute" title="Sound">🔊</button>
+        </div>
+      </div>
+      <div id="emote-menu" class="emote-menu" hidden></div>
+      <div class="hud-bottom">
+        <div class="army" id="hud-army"><b id="army-count">0</b><small>your mob</small></div>
+        <button class="ability giant" id="btn-giant" title="Launch a giant (G)">
+          <svg viewBox="0 0 44 44" class="ring"><circle cx="22" cy="22" r="19" /></svg>
+          <span>👑</span><small>Giant</small>
+        </button>
+        <button class="ability bomb" id="btn-bomb" title="Throw a bomb (B, or right-click)">
+          <svg viewBox="0 0 44 44" class="ring"><circle cx="22" cy="22" r="19" /></svg>
+          <span>💣</span><small>Bomb</small>
+        </button>
+        <div class="army enemy" id="hud-enemy"><b id="enemy-count">0</b><small>enemies</small></div>
+      </div>
+      <div id="banner" class="banner" hidden></div>
+      <div id="countdown" class="countdown" hidden></div>
+      <div id="toast-stack" class="toast-stack"></div>
+    </section>
+
+    <!-- Upgrade cards -->
+    <section id="upgrade" class="overlay" hidden>
+      <div class="overlay-card wide">
+        <h2 id="upgrade-title">Level cleared!</h2>
+        <p class="muted" id="upgrade-sub">Pick an upgrade.</p>
+        <div class="cards" id="cards"></div>
+        <p class="muted center" id="upgrade-wait"></p>
+      </div>
+    </section>
+
+    <!-- Game over -->
+    <section id="over" class="overlay" hidden>
+      <div class="overlay-card wide">
+        <h2 id="over-title">Victory!</h2>
+        <p id="over-sub" class="muted"></p>
+        <div class="table-wrap"><table class="stats" id="over-table"></table></div>
+        <div class="over-actions">
+          <button class="btn primary" id="btn-again">Play again</button>
+          <button class="btn ghost" id="btn-over-leave">Leave</button>
+        </div>
+        <p class="muted center" id="over-wait"></p>
+      </div>
+    </section>
+
+    <div id="reconnecting" class="reconnecting" hidden>Reconnecting…</div>
+    <div id="error-toast" class="error-toast" hidden></div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

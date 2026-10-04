@@ -1,0 +1,5 @@
+{
+  "//": "Lets Node load these browser modules in tests (tests/web_snapshot_test.mjs).",
+  "type": "module",
+  "private": true
+}
