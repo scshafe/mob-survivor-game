@@ -1,0 +1,7 @@
+build/
+.git/
+.github/
+.cache/
+deploy/
+docs/
+*.md

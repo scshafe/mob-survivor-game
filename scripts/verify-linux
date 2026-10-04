@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # The one command that verifies this repository (dev.toml [verify], run by CI
 # and by hand): a clean configure, a warnings-as-errors build, and the tests.
+# The tests include an end-to-end run of the real server (needs python3) and
+# the web client's checks (need node; skipped, with a notice, without it).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 build_dir="${MOB_SURVIVOR_BUILD_DIR:-build/verify}"
@@ -8,4 +10,7 @@ rm -rf "$build_dir"
 cmake -S . -B "$build_dir" -DCMAKE_BUILD_TYPE=Debug
 cmake --build "$build_dir" --parallel
 ctest --test-dir "$build_dir" --output-on-failure
-"$build_dir/mob-survivor-game"
+"$build_dir/mob-survivor-server" --help >/dev/null
+if ! command -v node >/dev/null; then
+  echo "verify-linux: node not found, the web client tests did not run" >&2
+fi

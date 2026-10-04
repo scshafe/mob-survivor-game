@@ -5,7 +5,17 @@
   -Wpedantic -Werror`).
 - The simulation core (`mob_survivor_core`) stays free of rendering, input and
   platform code, and `World::step` stays deterministic: tests and replays
-  depend on it.
+  depend on it. All randomness comes from `Rng` (seeded), never the clock.
+- `mob_survivor_net` (`src/net/`) holds everything server-side that does not
+  touch a socket (HTTP, WebSocket framing, JSON, protocol, lobby); keep it
+  that way so it stays testable headless. Sockets live only in `src/server/`.
+- The web client (`web/`) is plain ES modules with no build step and no
+  third-party code. A protocol change updates `docs/protocol.md`, both
+  `kProtocolVersion` and the client's `PROTOCOL`, and the decoder test.
+- Balance changes: measure with the bot (`bot_think`) over several seeds
+  before and after, and keep `docs/design.md` in step.
+- Deploying to the tailnet (`deploy/tailnet/`, `docs/deploy-tailnet.md`) is an
+  owner step: the agent cannot reach the tailnet.
 - Public repository: commits use the repo-local noreply identity.
 
 <!-- scshafe-dev:begin landing -->
@@ -28,5 +38,5 @@ How a change lands:
 
 The project's agent may merge its own PR and push `main`; there is no approval gate.
 
-Central concepts are defined in VOCABULARY.toml; refer to them as `mob-survivor-game:<slug>`, and add a term with `dev vocab add` when you introduce one.
+Central concepts are defined in VOCABULARY.toml; refer to them as `mob-survivor-game:<slug>` (e.g. `mob-survivor-game:mob`), and add a term with `dev vocab add` when you introduce one.
 <!-- scshafe-dev:end landing -->
