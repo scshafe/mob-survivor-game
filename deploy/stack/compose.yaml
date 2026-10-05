@@ -1,0 +1,62 @@
+# Mob Survivor on the tailnet as its own machine, `mob-survivor`, served at
+# https://mob-survivor.<tailnet>/ (tailnet only; never Funnel). An app-owned
+# stack (scshafe infra docs/platform/agent-deploy.md): a merge to main deploys
+# it through the runner lane; nobody runs `docker compose` on it by hand.
+#
+# The host's tools/stack validates this file against an allowlist before
+# anything runs: no privileges, no host namespaces, binds only under ./state,
+# images either built here (through the pin) or pinned by digest. `dev check`
+# runs the same validator (DEPLOY-04).
+#
+# The sidecar joins the tailnet as `mob-survivor` and terminates HTTPS with the
+# tailnet's certificate (serve.json). The game shares its network namespace
+# and listens only on 127.0.0.1:8080 there; nothing is published on the host.
+name: mob-survivor-game
+
+services:
+  ts-mob-survivor:
+    # tailscale/tailscale:v1.102.5 (= stable on 2026-10-05), multi-arch index digest
+    image: tailscale/tailscale:v1.102.5@sha256:c507f3a2a6ab1cabd8d809b98edeb41edbd5c3fb6ad9632ffd098b4c7d0b4065
+    container_name: ts-mob-survivor
+    init: true
+    restart: unless-stopped
+    dns: [1.1.1.1]
+    security_opt: [no-new-privileges:true]
+    environment:
+      TS_HOSTNAME: mob-survivor
+      TS_USERSPACE: "true"
+      TS_AUTH_ONCE: "true"
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+    volumes:
+      - ./state/tailscale:/var/lib/tailscale
+      - ./serve.json:/config/serve.json:ro
+
+  game:
+    # Built by the host from this repository's Dockerfile at the merged commit
+    # and pinned in the runtime .env by the deploy.
+    image: ${MOB_SURVIVOR_GAME_IMAGE}
+    container_name: mob-survivor-game
+    init: true
+    user: "65532:65532"  # the image's user; the deploy gives ./state/game to this uid
+    restart: unless-stopped
+    network_mode: service:ts-mob-survivor
+    depends_on: [ts-mob-survivor]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    pids_limit: 256
+    environment:
+      MOB_SURVIVOR_BIND: 127.0.0.1
+      MOB_SURVIVOR_PORT: "8080"
+      MOB_SURVIVOR_DATA: /data
+    volumes:
+      - ./state/game:/data  # the leaderboard
+    healthcheck:
+      test: ["CMD", "/app/mob-survivor-server", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

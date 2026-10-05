@@ -14,8 +14,11 @@
   `kProtocolVersion` and the client's `PROTOCOL`, and the decoder test.
 - Balance changes: measure with the bot (`bot_think`) over several seeds
   before and after, and keep `docs/design.md` in step.
-- Deploying to the tailnet (`deploy/tailnet/`, `docs/deploy-tailnet.md`) is an
-  owner step: the agent cannot reach the tailnet.
+- A merge to `main` deploys (the runner lane, `docs/deploy.md`): watch it
+  with `gh run watch`; roll back by merging a revert, or by dispatching
+  `deploy.yml` with `sha` and `allow_rollback`. `deploy/stack/` is checked by
+  `dev check` (DEPLOY-03..05) and, at deploy, by infra's validator; the agent
+  cannot reach the tailnet or the host.
 - Public repository: commits use the repo-local noreply identity.
 
 <!-- scshafe-dev:begin landing -->
@@ -37,6 +40,10 @@ How a change lands:
 3. Merge your own PR with a merge commit, one change at a time: `gh pr merge <N> --merge --subject "Merge #<N>: <title>"`. Never squash or rebase (both are off on the repository), and pass `--subject`: `gh pr merge` does not make the `Merge #N: <title>` subject by itself.
 
 The project's agent may merge its own PR and push `main`; there is no approval gate.
+
+Merging deploys to production ([deploy] lane `runner`: `.github/workflows/deploy.yml` verifies on a GitHub-hosted runner, deploys through the host entrypoint on the `mob-survivor-game-prod` self-hosted runner, then checks health).
+Watch the run yourself with `gh run list -w deploy`, `gh run watch <id>` and `gh run view <id> --log` (a public repository's deploy log is a summary only); say in your reply what the run did, naming the merge commit.
+Roll back by merging a `git revert`, or by dispatching `deploy.yml` with `sha=<older commit on main>` and `allow_rollback=true` (`gh workflow run deploy.yml -f sha=<sha> -f allow_rollback=true`).
 
 Central concepts are defined in VOCABULARY.toml; refer to them as `mob-survivor-game:<slug>` (e.g. `mob-survivor-game:mob`), and add a term with `dev vocab add` when you introduce one.
 <!-- scshafe-dev:end landing -->

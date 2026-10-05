@@ -171,6 +171,11 @@ def main():
         assert headers["Content-Type"].startswith("text/html")
         status, body, _ = http_get(port, "/healthz")
         assert status == 200 and body == b"ok\n"
+        # The container healthcheck mode: 0 against the live server, 1 when
+        # nothing answers (port 1 on loopback is closed).
+        probe = [server_path, "--healthcheck", "--bind", "127.0.0.1", "--port"]
+        assert subprocess.run(probe + [str(port)], timeout=10).returncode == 0
+        assert subprocess.run(probe + ["1"], timeout=10, stderr=subprocess.DEVNULL).returncode == 1
         status, body, _ = http_get(port, "/api/status")
         assert status == 200 and json.loads(body)["ok"] is True
         assert http_get(port, "/nope.js")[0] == 404

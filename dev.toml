@@ -39,3 +39,15 @@ params = { kind = "native", name = "mob-survivor-game", date = "2026-10-04" }
 [identity]
 agent = "agent-mob-survivor-game"
 github = ["contents=write", "pull_requests=write", "issues=write", "workflows=write", "actions=write"]
+
+# DEPLOY-01: how this project reaches production (references, never secrets).
+# The runner lane: a merge to main runs .github/workflows/deploy.yml (verify on
+# a hosted runner, then deploy and health on the production host's runner for
+# this repository). The stack is app-owned (deploy/stack/); infra's
+# stacks/mob-survivor-game/host.conf grants the node.
+[deploy]
+lane = "runner"
+layout = "app"
+tailnet_node = "mob-survivor"
+door = "none"
+verify_on = "hosted"
