@@ -36,8 +36,9 @@ jobs:
           ./scripts/verify-linux
 
   # The deployable image: it builds (running the tests inside), starts, and
-  # serves the client. Nothing is pushed anywhere; deploying is by hand (see
-  # docs/deploy-tailnet.md).
+  # serves the client. Nothing is pushed anywhere: a merge to main deploys
+  # through deploy.yml, where the production host builds the same Dockerfile
+  # (docs/deploy.md).
   image:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -54,7 +55,8 @@ jobs:
           for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/healthz && break; sleep 1; done
           curl -fsS http://127.0.0.1:8080/ | grep -q '<title>Mob Survivor</title>'
           curl -fsS http://127.0.0.1:8080/api/status
+          docker exec mob-survivor /app/mob-survivor-server --healthcheck
           docker logs mob-survivor
           docker rm -f mob-survivor
-      - name: Check the tailnet stack
-        run: TS_AUTHKEY=placeholder docker compose -f deploy/tailnet/compose.yaml config --quiet
+      - name: Check the app-owned stack parses
+        run: MOB_SURVIVOR_GAME_IMAGE=mob-survivor:ci docker compose -f deploy/stack/compose.yaml config --quiet

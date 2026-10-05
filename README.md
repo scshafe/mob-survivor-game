@@ -12,9 +12,17 @@ the horde, or against each other.
 - Extras: aimed bombs, chargeable giants, sliding, halving and shared gates,
   saw blades, the versus Frenzy, emotes, and rejoining a match after a drop.
 
+## Play it
+
+Open **<https://mob-survivor.colobus-stargazer.ts.net/>** from any device on
+the tailnet (it is not reachable from the internet). Pick a name, then **Play
+solo**, open a **Co-op room** or **Versus room** and share its code with
+friends (they join with that code), or start a **Quick duel** against a bot.
+Works on phones too: slide to aim, hold to fire.
+
 Rules and tuning: [docs/design.md](docs/design.md). Wire protocol:
-[docs/protocol.md](docs/protocol.md). Tailnet deployment:
-[docs/deploy-tailnet.md](docs/deploy-tailnet.md).
+[docs/protocol.md](docs/protocol.md). Deploys, rollback and where state
+lives: [docs/deploy.md](docs/deploy.md).
 
 ## Layout
 
@@ -25,7 +33,7 @@ Rules and tuning: [docs/design.md](docs/design.md). Wire protocol:
 | `src/server/` | `mob-survivor-server`: one poll() loop serving the client and every room |
 | `web/` | the browser client: plain ES modules and Canvas 2D, no build step |
 | `tests/` | C++ unit tests, an end-to-end test of the real server, and the client's decoder test |
-| `Dockerfile`, `deploy/tailnet/` | the image, and a compose stack that puts it on the tailnet as `mob-survivor` |
+| `Dockerfile`, `deploy/stack/` | the image, and the app-owned stack that puts it on the tailnet as `mob-survivor` (deployed by a merge to `main`) |
 
 ## Run it locally
 

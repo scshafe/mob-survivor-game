@@ -14,8 +14,11 @@
   `kProtocolVersion` and the client's `PROTOCOL`, and the decoder test.
 - Balance changes: measure with the bot (`bot_think`) over several seeds
   before and after, and keep `docs/design.md` in step.
-- Deploying to the tailnet (`deploy/tailnet/`, `docs/deploy-tailnet.md`) is an
-  owner step: the agent cannot reach the tailnet.
+- A merge to `main` deploys (the runner lane, `docs/deploy.md`): watch it
+  with `gh run watch`; roll back by merging a revert, or by dispatching
+  `deploy.yml` with `sha` and `allow_rollback`. `deploy/stack/` is checked by
+  `dev check` (DEPLOY-03..05) and, at deploy, by infra's validator; the agent
+  cannot reach the tailnet or the host.
 - Public repository: commits use the repo-local noreply identity.
 
 <!-- scshafe-dev:begin landing -->

@@ -13,14 +13,14 @@ dockerfile = "Dockerfile"
 containers = ["mob-survivor-game"]           # all must be ready on the candidate
 health = "/healthz"                  # probed through the tailnet name
 ready_attempts = 20
-rollback_services = ["mob-survivor-game"]
+rollback_services = ["game"]
 
 [check]
-required_health_services = ["mob-survivor-game"]
+required_health_services = ["game"]
 
 [backup]
 tailscale = true                     # the node identity (always, with a sidecar)
-paths = []                           # app data under state/, e.g. ["state/data"]
+paths = ["state/game"]               # the leaderboard
 
 [env]
 required = ["TS_AUTHKEY"]
