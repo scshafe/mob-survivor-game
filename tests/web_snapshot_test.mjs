@@ -29,6 +29,16 @@ check(snap.bases[1].max === expected.redMax, 'red base max');
 check(snap.cannons.length === expected.cannons, 'cannons');
 check(snap.gateX.length === expected.gates, 'gates');
 check(snap.events.length === expected.events, 'events');
+check(snap.cannons[0].volley === expected.volley, 'first cannon volley');
+check(snap.powerups.length === expected.powerups, 'power-ups');
+check(expected.powerups > 0, 'the fixture has a power-up');
+if (expected.firstPowerUp) {
+  const p = snap.powerups[0];
+  check(p.id === expected.firstPowerUp.id, 'power-up id');
+  check(Math.abs(p.x - expected.firstPowerUp.x) <= 0.006, 'power-up x');
+  check(Math.abs(p.y - expected.firstPowerUp.y) <= 0.006, 'power-up y');
+  check(p.hp === expected.firstPowerUp.hp && p.max === expected.firstPowerUp.max, 'power-up hp');
+}
 check(snap.mobs.count === expected.mobs, 'mobs');
 check(expected.mobs > 0, 'the fixture has mobs');
 if (expected.lastMob) {

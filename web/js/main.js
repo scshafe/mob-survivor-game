@@ -6,14 +6,11 @@ import { GameView } from './game.js';
 import { PLAYER_COLORS } from './render.js';
 import { isMuted, setMuted, sfx, unlockAudio } from './audio.js';
 
-const PROTOCOL = 1;
+const PROTOCOL = 2;
 const DEFAULT_NAME = /^Player \d+$/;
 const EMOTES = ['👍', '😂', '😱', '🔥', '😡', '🎉'];
 const CARD_GLYPHS = {
   rapid: '⚡',
-  twin: '🔱',
-  generous: '➕',
-  golden: '✨',
   lucky: '🍀',
   charge: '🔋',
   heavy: '🏋️',

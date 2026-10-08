@@ -194,10 +194,11 @@ export class Renderer {
     this.drawSaws(frame.level, view, frame.time);
     if (frame.aim) this.drawAim(frame.aim, frame.level);
     this.drawMobs(view);
+    this.drawPowerUps(view, frame.time, frame.level);
     this.drawCannons(view, frame);
     this.drawBombs(view, frame.time);
     frame.effects.draw(ctx, this);
-    if (frame.bombArmed && frame.pointer) this.drawCrosshair(frame.pointer, frame.time);
+    if (frame.bombAim) this.drawCrosshair(frame.bombAim, frame.time, frame.aimCount);
     if (view.frenzy) this.drawFrenzy(frame.time);
   }
 
@@ -573,6 +574,19 @@ export class Renderer {
         ctx.fill();
       }
       ctx.globalAlpha = 1;
+      // Shots per volley, once a power-up raised it.
+      if (cannon.volley > 1) {
+        const badgeX = x + s * 1.25;
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(badgeX, y, s * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = `900 ${Math.max(9, s * 0.5)}px system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#422006';
+        ctx.fillText(`×${cannon.volley}`, badgeX, y + s * 0.02);
+      }
       // Name tag.
       const name = frame.nameOf(cannon.slot);
       if (name) {
@@ -618,19 +632,67 @@ export class Renderer {
     }
   }
 
-  drawCrosshair(pointer, time) {
+  // The bomb aimer at a world point, with any vim count being typed.
+  drawCrosshair(aim, time, count) {
     const ctx = this.ctx;
     const s = this.scale;
     const r = 2.6 * s;
+    const x = this.sx(aim.x);
+    const y = this.sy(aim.y);
     ctx.strokeStyle = `rgba(251,146,60,${0.6 + 0.3 * Math.sin(time * 8)})`;
     ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.arc(pointer.x, pointer.y, r, 0, Math.PI * 2);
-    ctx.moveTo(pointer.x - r * 1.2, pointer.y);
-    ctx.lineTo(pointer.x + r * 1.2, pointer.y);
-    ctx.moveTo(pointer.x, pointer.y - r * 1.2);
-    ctx.lineTo(pointer.x, pointer.y + r * 1.2);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.moveTo(x - r * 1.2, y);
+    ctx.lineTo(x + r * 1.2, y);
+    ctx.moveTo(x, y - r * 1.2);
+    ctx.lineTo(x, y + r * 1.2);
     ctx.stroke();
+    if (count) {
+      ctx.font = `800 ${Math.max(12, s * 0.8)}px system-ui, sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.strokeText(count, x + r * 0.75, y - r * 0.75);
+      ctx.fillStyle = '#fed7aa';
+      ctx.fillText(count, x + r * 0.75, y - r * 0.75);
+    }
+  }
+
+  // "+1 shot" targets: a gold orb with a ring that empties as it is hit.
+  drawPowerUps(view, time, level) {
+    const ctx = this.ctx;
+    const s = this.scale;
+    const radius = (level.field.powerUpRadius ?? 0.9) * s;
+    for (const powerup of view.powerups) {
+      const x = this.sx(powerup.x);
+      const y = this.sy(powerup.y);
+      const pulse = 1 + 0.06 * Math.sin(time * 6 + powerup.id);
+      ctx.fillStyle = 'rgba(253,224,71,0.25)';
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 1.5 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      const orb = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, radius * 0.1, x, y, radius);
+      orb.addColorStop(0, '#fef9c3');
+      orb.addColorStop(1, '#ca8a04');
+      ctx.fillStyle = orb;
+      ctx.beginPath();
+      ctx.arc(x, y, radius * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // What is left to break, as an arc around the orb.
+      const left = powerup.max > 0 ? powerup.hp / powerup.max : 1;
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = Math.max(2, s * 0.14);
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 1.3, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
+      ctx.stroke();
+      ctx.font = `900 ${Math.max(10, s * 0.75)}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#422006';
+      ctx.fillText('+1', x, y + s * 0.03);
+    }
   }
 
   drawFrenzy(time) {

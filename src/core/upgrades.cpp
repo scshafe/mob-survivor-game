@@ -8,9 +8,6 @@ namespace {
 
 constexpr std::array<CardInfo, kCardCount> kCards{{
     {CardId::RapidFire, "rapid", "Rapid Fire", "Cannon fires 18% faster.", 4, 1},
-    {CardId::TwinBarrel, "twin", "Twin Barrel", "+1 mob in every volley.", 2, 1},
-    {CardId::GenerousGates, "generous", "Generous Gates", "Every + gate gives you 3 more.", 3, 1},
-    {CardId::GoldenGates, "golden", "Golden Gates", "Every x gate multiplies one more for you.", 1, 3},
     {CardId::LuckyCharm, "lucky", "Lucky Charm", "Your mobs walk through /2 gates unharmed.", 1, 2},
     {CardId::QuickCharge, "charge", "Quick Charge", "Giants charge 35% faster.", 3, 1},
     {CardId::HeavyGiants, "heavy", "Heavy Giants", "Your giants have 60% more health.", 3, 1},
@@ -29,15 +26,6 @@ bool apply_card(CardId id, PlayerStats& stats) {
   switch (id) {
     case CardId::RapidFire:
       stats.fire_interval *= 0.82;
-      return false;
-    case CardId::TwinBarrel:
-      stats.shots_per_volley += 1;
-      return false;
-    case CardId::GenerousGates:
-      stats.add_gate_bonus += 3;
-      return false;
-    case CardId::GoldenGates:
-      stats.mul_gate_bonus += 1;
       return false;
     case CardId::LuckyCharm:
       stats.halve_immune = true;

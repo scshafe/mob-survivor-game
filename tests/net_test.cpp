@@ -145,17 +145,19 @@ void snapshots_have_the_documented_size() {
   Match match(Mode::Campaign, 11, {{0, Team::Blue, false}});
   for (int i = 0; i < 30 * 3 + 5; ++i) match.step(kTickSeconds);
   match.set_input(0, 12.0, true);
-  for (int i = 0; i < 30 * 4; ++i) match.step(kTickSeconds);
+  for (int i = 0; i < 30 * 8; ++i) match.step(kTickSeconds);
   const auto events = match.take_events();
   const std::string bytes = encode_snapshot(match, events);
   const World& world = match.world();
-  const std::size_t expected = 18 + 16 + 1 + world.cannons().size() * 7 + 1 + world.level().gates.size() * 2 + 1 +
-                               world.level().saws.size() * 2 + 1 + world.bombs().size() * 12 + 2 + events.size() * 12 +
+  const std::size_t expected = 18 + 16 + 1 + world.cannons().size() * 8 + 1 + world.level().gates.size() * 2 + 1 +
+                               world.level().saws.size() * 2 + 1 + world.bombs().size() * 12 + 1 +
+                               world.powerups().size() * 12 + 2 + events.size() * 12 +
                                2 + world.mobs().size() * 11;
   CHECK(bytes.size() == expected);
   CHECK(static_cast<std::uint8_t>(bytes[0]) == kSnapshotKind);
   CHECK(static_cast<std::uint8_t>(bytes[1]) == static_cast<std::uint8_t>(Phase::Playing));
   CHECK(!world.mobs().empty());
+  CHECK(!world.powerups().empty());
 
   const auto level = parse_json(encode_level(match));
   CHECK(level.has_value() && level->get_string("t") == "level" && level->get_number("level") == 1);

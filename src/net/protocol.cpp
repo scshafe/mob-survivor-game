@@ -115,6 +115,7 @@ std::string encode_snapshot(const Match& match, const std::vector<Event>& events
     out.u8(static_cast<unsigned>(std::lround(std::clamp(cannon.bomb_cooldown, 0.0, 25.5) * 10.0)));
     const unsigned flags = (cannon.connected ? 1U : 0U) | (cannon.firing ? 2U : 0U) | (cannon.charge >= 1.0 ? 4U : 0U);
     out.u8(flags);
+    out.u8(static_cast<unsigned>(std::clamp(cannon.shots_per_volley, 0, 255)));
   }
 
   const auto& gates = world.level().gates;
@@ -136,6 +137,17 @@ std::string encode_snapshot(const Match& match, const std::vector<Event>& events
     out.coord(bomb.target.y);
     out.coord(bomb.radius);
     out.u8(static_cast<unsigned>(std::lround(std::clamp(bomb.fuse, 0.0, 2.55) * 100.0)));
+  }
+
+  const auto& powerups = world.powerups();
+  out.u8(static_cast<unsigned>(std::min<std::size_t>(powerups.size(), 255)));
+  for (std::size_t p = 0; p < powerups.size() && p < 255; ++p) {
+    const PowerUp& powerup = powerups[p];
+    out.u32(powerup.id);
+    out.coord(powerup.position.x);
+    out.coord(powerup.position.y);
+    out.u16(static_cast<unsigned>(std::clamp(powerup.hp, 0, 65535)));
+    out.u16(static_cast<unsigned>(std::clamp(powerup.max_hp, 0, 65535)));
   }
 
   const std::size_t event_count = std::min<std::size_t>(events.size(), 65535);
@@ -176,6 +188,7 @@ std::string encode_level(const Match& match) {
   w.field("boss", level.boss);
   w.key("field").begin_object();
   w.field("w", kFieldWidth).field("h", kFieldLength).field("baseDepth", kBaseDepth).field("cannonOffset", kCannonOffset);
+  w.field("powerUpRadius", kPowerUpRadius).field("maxVolley", kMaxShotsPerVolley);
   w.end_object();
   w.field("timeLimit", level.time_limit);
   w.field("frenzyAt", level.frenzy_at);

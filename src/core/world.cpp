@@ -103,6 +103,7 @@ World::World(WorldConfig config) : level_(std::move(config.level)), rng_(config.
   gate_gain_.assign(level_.gates.size() * kTeamCount, 0);
   wave_timer_ = level_.ai.first_wave;
   boss_timer_ = level_.ai.first_boss;
+  powerup_timer_ = level_.powerups.first;
 }
 
 Cannon* World::find_cannon(int slot) {
@@ -197,6 +198,7 @@ void World::step(double dt) {
   step_ai(dt);
   step_bombs(dt);
   step_mobs(dt);
+  step_powerups(dt);
   resolve_contacts(dt);
   std::erase_if(mobs_, [](const Mob& mob) { return mob.hp <= 0; });
 
@@ -263,7 +265,7 @@ void World::step_cannons(double dt) {
     }
     cannon.fire_timer -= dt;
     while (cannon.fire_timer <= 0.0) {
-      const int shots = cannon.stats.shots_per_volley;
+      const int shots = cannon.shots_per_volley;
       for (int s = 0; s < shots; ++s) {
         Mob mob;
         mob.team = cannon.team;
@@ -347,6 +349,54 @@ void World::step_bombs(double dt) {
   std::erase_if(bombs_, [](const Bomb& bomb) { return bomb.fuse <= 0.0; });
 }
 
+void World::step_powerups(double dt) {
+  const PowerUpSpec& spec = level_.powerups;
+  if (spec.first > 0.0) {
+    powerup_timer_ -= dt;
+    if (powerup_timer_ <= 0.0) {
+      powerup_timer_ += spec.interval * rng_.uniform(0.85, 1.15);
+      if (powerups_.size() < kMaxPowerUps) {
+        PowerUp powerup;
+        powerup.id = next_id_++;
+        const bool from_left = rng_.chance(0.5);
+        double y = rng_.uniform(spec.y_min, spec.y_max);
+        if (spec.mirror && rng_.chance(0.5)) y = kFieldLength - y;
+        powerup.position = {from_left ? -kPowerUpRadius : kFieldWidth + kPowerUpRadius, y};
+        powerup.velocity = (from_left ? 1.0 : -1.0) * rng_.uniform(spec.speed_min, spec.speed_max);
+        powerup.hp = std::max(spec.hp, 1);
+        powerup.max_hp = powerup.hp;
+        powerups_.push_back(powerup);
+      }
+    }
+  }
+
+  for (PowerUp& powerup : powerups_) {
+    powerup.position.x += powerup.velocity * dt;
+    for (Mob& mob : mobs_) {
+      if (mob.owner < 0 || mob.hp <= 0 || is_big(mob.kind)) continue;
+      const double dx = mob.position.x - powerup.position.x;
+      const double dy = mob.position.y - powerup.position.y;
+      const double reach = kPowerUpRadius + mob_radius(mob);
+      if (dx * dx + dy * dy > reach * reach) continue;
+      const int spent = std::min(mob.hp, powerup.hp);
+      mob.hp -= spent;
+      powerup.hp -= spent;
+      if (powerup.hp > 0) continue;
+      Cannon* breaker = find_cannon(mob.owner);
+      if (breaker != nullptr) {
+        breaker->shots_per_volley = std::min(kMaxShotsPerVolley, breaker->shots_per_volley + 1);
+        emit({EventType::PowerUp, breaker->team, powerup.position, breaker->shots_per_volley, breaker->slot});
+      }
+      break;
+    }
+  }
+  // Broken ones, and ones that drifted out by the far wall.
+  std::erase_if(powerups_, [](const PowerUp& powerup) {
+    return powerup.hp <= 0 || (powerup.velocity > 0.0 ? powerup.position.x > kFieldWidth + kPowerUpRadius
+                                                       : powerup.position.x < -kPowerUpRadius);
+  });
+}
+
 void World::apply_gate(std::size_t gate_index, Mob& mob, std::vector<Mob>& born) {
   const Gate& gate = level_.gates[gate_index];
   mob.gates_passed |= 1U << gate_index;
@@ -359,12 +409,12 @@ void World::apply_gate(std::size_t gate_index, Mob& mob, std::vector<Mob>& born)
   int extra = 0;
   switch (gate.op) {
     case GateOp::Add: {
-      extra = gate.value + stats.add_gate_bonus;
+      extra = gate.value;
       if (frenzy_) extra += extra / 2;
       break;
     }
     case GateOp::Mul: {
-      const int factor = gate.value + stats.mul_gate_bonus + (frenzy_ ? 1 : 0);
+      const int factor = gate.value + (frenzy_ ? 1 : 0);
       extra = (factor - 1) * (big ? 3 : mob.hp);
       break;
     }

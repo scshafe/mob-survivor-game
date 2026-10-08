@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <optional>
 
 namespace mob_survivor {
 
@@ -36,6 +37,23 @@ const Mob* nearest_threat(const World& world, Team team, double range) {
   return best;
 }
 
+// Where to aim so a grunt fired now meets a drifting power-up, if it can.
+std::optional<double> powerup_aim(const World& world, const Cannon& cannon) {
+  if (cannon.shots_per_volley >= kMaxShotsPerVolley) return std::nullopt;
+  const double y = cannon_y(cannon.team);
+  const double dir = team_direction(cannon.team);
+  std::optional<double> best;
+  double best_time = std::numeric_limits<double>::max();
+  for (const PowerUp& powerup : world.powerups()) {
+    const double time = (powerup.position.y - y) * dir / (mob_speed(MobKind::Grunt) * cannon.stats.speed_scale);
+    const double x = powerup.position.x + powerup.velocity * time;
+    if (time <= 0.0 || x < 1.0 || x > kFieldWidth - 1.0 || time >= best_time) continue;
+    best_time = time;
+    best = x;
+  }
+  return best;
+}
+
 }  // namespace
 
 BotCommand bot_think(const World& world, int slot, double skill, double dt, BotState& state, Rng& rng) {
@@ -51,8 +69,11 @@ BotCommand bot_think(const World& world, int slot, double skill, double dt, BotS
   if (state.think_timer <= 0.0) {
     state.think_timer = rng.uniform(0.3, 0.6) + (1.0 - skill) * 0.4;
     const Mob* threat = nearest_threat(world, team, 9.0);
+    const std::optional<double> powerup = threat == nullptr ? powerup_aim(world, *cannon) : std::nullopt;
     if (threat != nullptr) {
       state.aim = threat->position.x;
+    } else if (powerup) {
+      state.aim = *powerup;
     } else {
       // The nearest row ahead whose gates help this team.
       double row_distance = std::numeric_limits<double>::max();

@@ -12,9 +12,6 @@ namespace mob_survivor {
 // Everything a player's upgrades change. A fresh player has the defaults.
 struct PlayerStats {
   double fire_interval = 0.17;  // seconds between volleys while firing
-  int shots_per_volley = 1;
-  int add_gate_bonus = 0;       // extra mobs from every "+N" gate
-  int mul_gate_bonus = 0;       // added to every "xN" gate
   bool halve_immune = false;    // "/2" gates never cull this player's mobs
   double charge_rate = 1.0;     // giant charge per shot, multiplier
   double giant_hp_scale = 1.0;
@@ -25,9 +22,6 @@ struct PlayerStats {
 
 enum class CardId : std::uint8_t {
   RapidFire = 0,
-  TwinBarrel,
-  GenerousGates,
-  GoldenGates,
   LuckyCharm,
   QuickCharge,
   HeavyGiants,
@@ -35,7 +29,7 @@ enum class CardId : std::uint8_t {
   Sprinters,
   Fortify,
 };
-inline constexpr int kCardCount = 10;
+inline constexpr int kCardCount = 7;
 
 struct CardInfo {
   CardId id;

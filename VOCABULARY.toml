@@ -86,3 +86,16 @@ half again) until the 4:00 time limit, when the healthier base wins.
 """
 refs = ["docs/design.md"]
 aliases = ["overtime"]
+
+[[term]]
+slug = "power-up"
+title = "Power-up"
+definition = """
+A gold "+1" orb that drifts across the lane during a level. A player's grunts
+and runners that run into it are spent on it, one hit point for one; the player
+whose mob breaks it fires one more mob in every volley for the rest of the level
+(at most three a volley). Not an upgrade card: cards are picked between campaign
+levels and last the whole run.
+"""
+refs = ["include/mob_survivor/world.hpp", "docs/design.md"]
+aliases = ["+1 shot", "orb"]

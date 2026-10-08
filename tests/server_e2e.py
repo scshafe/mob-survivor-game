@@ -117,10 +117,11 @@ def parse_snapshot(data):
     kind, phase, level, tick, left, elapsed, frenzy, outcome = take("BBHIffBB")
     assert kind == 1
     bases = [take("ii") for _ in range(2)]
-    cannons = [take("BBhBBB") for _ in range(take("B")[0])]
+    cannons = [take("BBhBBBB") for _ in range(take("B")[0])]
     gates = [take("h")[0] for _ in range(take("B")[0])]
     saws = [take("h")[0] for _ in range(take("B")[0])]
     bombs = [take("BhhhhhB") for _ in range(take("B")[0])]
+    powerups = [take("IhhHH") for _ in range(take("B")[0])]
     events = [take("BBhhhi") for _ in range(take("H")[0])]
     mobs = [take("IhhBH") for _ in range(take("H")[0])]
     assert at == len(data), (at, len(data))
@@ -133,6 +134,7 @@ def parse_snapshot(data):
         "gates": gates,
         "saws": saws,
         "bombs": bombs,
+        "powerups": powerups,
         "events": events,
         "mobs": mobs,
     }
@@ -180,7 +182,7 @@ def main():
         # Two friends: a campaign room, joined by code.
         ada = WebSocket(port, {"Tailscale-User-Name": "Ada"})
         welcome = ada.wait_for("welcome")
-        assert welcome["name"] == "Ada" and welcome["v"] == 1, welcome
+        assert welcome["name"] == "Ada" and welcome["v"] == 2, welcome
         ada.send({"t": "hello", "name": "Ada"})
         ada.send({"t": "create", "mode": "campaign"})
         room = ada.wait_for("room")

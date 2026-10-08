@@ -35,6 +35,15 @@ int main(int argc, char** argv) {
   w.field("cannons", static_cast<int>(world.cannons().size()));
   w.field("gates", static_cast<int>(world.level().gates.size()));
   w.field("events", static_cast<int>(events.size()));
+  w.field("powerups", static_cast<int>(world.powerups().size()));
+  if (!world.powerups().empty()) {
+    const PowerUp& first = world.powerups().front();
+    w.key("firstPowerUp").begin_object();
+    w.field("id", first.id).field("x", first.position.x).field("y", first.position.y);
+    w.field("hp", first.hp).field("max", first.max_hp);
+    w.end_object();
+  }
+  w.field("volley", world.cannons().front().shots_per_volley);
   w.field("mobs", static_cast<int>(world.mobs().size()));
   if (!world.mobs().empty()) {
     const Mob& last = world.mobs().back();

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 
 #include "check.hpp"
 #include "mob_survivor/level.hpp"
@@ -183,6 +184,92 @@ void a_destroyed_base_ends_the_level() {
   CHECK(world.elapsed() == elapsed);  // frozen once decided
 }
 
+// One power-up at a time on the line y = 20, drifting at 2 units a second.
+WorldConfig with_powerups(int hp, double interval = 100.0) {
+  WorldConfig config = bare();
+  config.level.powerups.first = 0.5;
+  config.level.powerups.interval = interval;
+  config.level.powerups.hp = hp;
+  config.level.powerups.y_min = 20.0;
+  config.level.powerups.y_max = 20.0;
+  config.level.powerups.speed_min = 2.0;
+  config.level.powerups.speed_max = 2.0;
+  return config;
+}
+
+Mob owned_grunt(double x, double y, int hp) {
+  Mob mob = grunt(Team::Blue, x, y, hp);
+  mob.owner = 0;
+  return mob;
+}
+
+void power_ups_drift_across_and_out() {
+  World world(with_powerups(10));
+  world.step(0.4);
+  CHECK(world.powerups().empty());
+  world.step(1.0);
+  CHECK(world.powerups().size() == 1);
+  const PowerUp first = world.powerups().front();
+  CHECK(first.position.y == 20.0 && first.hp == 10 && first.max_hp == 10);
+  CHECK(std::fabs(first.velocity) == 2.0);
+  for (int i = 0; i < 14 * 30; ++i) world.step(kTickSeconds);
+  CHECK(world.powerups().empty());
+}
+
+void breaking_a_power_up_adds_a_shot_to_every_volley() {
+  World world(with_powerups(3));
+  for (int i = 0; i < 3 * 30; ++i) world.step(kTickSeconds);
+  CHECK(world.powerups().size() == 1);
+  const Vec2 at = world.powerups().front().position;
+  // The AI's mobs pass it by.
+  Mob ai = grunt(Team::Red, at.x, at.y, 5);
+  world.spawn(ai);
+  world.step(kTickSeconds);
+  CHECK(world.powerups().front().hp == 3);
+  CHECK(world.mobs().size() == 1);
+  for (int i = 0; i < 30; ++i) world.step(kTickSeconds);  // it marches out of the way
+  CHECK(world.powerups().size() == 1);
+  world.spawn(owned_grunt(world.powerups().front().position.x, 19.9, 2));
+  world.step(kTickSeconds);
+  CHECK(world.powerups().front().hp == 1);
+  CHECK(world.cannon(0)->shots_per_volley == 1);
+  world.take_events();
+  world.spawn(owned_grunt(world.powerups().front().position.x, 19.9, 4));
+  world.step(kTickSeconds);
+  CHECK(world.powerups().empty());
+  CHECK(world.cannon(0)->shots_per_volley == 2);
+  const auto events = world.take_events();
+  CHECK(std::any_of(events.begin(), events.end(), [](const Event& e) {
+    return e.type == EventType::PowerUp && e.index == 0 && e.value == 2;
+  }));
+  // What was left of the squad marches on.
+  const auto blue = std::count_if(world.mobs().begin(), world.mobs().end(), [](const Mob& m) { return m.team == Team::Blue; });
+  CHECK(blue == 1);
+
+  // Now every volley is two mobs.
+  world.set_input(0, 12.0, true);
+  world.step(kTickSeconds);
+  CHECK(world.tally(0).shots == 2);
+}
+
+void volley_bonuses_stop_at_the_cap() {
+  World world(with_powerups(1, 1.0));
+  int breaks = 0;
+  for (int i = 0; i < 40 * 30; ++i) {
+    for (const PowerUp& powerup : world.powerups()) {
+      if (powerup.position.x > 1.0 && powerup.position.x < kFieldWidth - 1.0) {
+        world.spawn(owned_grunt(powerup.position.x, powerup.position.y - 0.1, 1));
+      }
+    }
+    world.step(kTickSeconds);
+    for (const Event& event : world.take_events()) {
+      if (event.type == EventType::PowerUp) ++breaks;
+    }
+  }
+  CHECK(breaks > kMaxShotsPerVolley);
+  CHECK(world.cannon(0)->shots_per_volley == kMaxShotsPerVolley);
+}
+
 void stepping_is_deterministic() {
   auto run = [] {
     WorldConfig config;
@@ -228,6 +315,7 @@ void levels_are_reproducible_and_sane() {
     }
     CHECK(a.base_hp[1] > a.base_hp[0]);
     CHECK(a.boss == (level % 5 == 0));
+    CHECK(a.powerups.first > 0.0 && a.powerups.hp > 0 && a.powerups.y_min < a.powerups.y_max);
   }
 }
 
@@ -262,5 +350,8 @@ int main() {
   stepping_is_deterministic();
   levels_are_reproducible_and_sane();
   versus_arenas_are_point_symmetric();
+  power_ups_drift_across_and_out();
+  breaking_a_power_up_adds_a_shot_to_every_volley();
+  volley_bonuses_stop_at_the_cap();
   return check::finish("world_test");
 }
