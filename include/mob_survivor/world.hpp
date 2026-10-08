@@ -49,6 +49,7 @@ struct Cannon {
   PlayerStats stats;
   double phase_cooldown = 0.0;  // until Phase can be used again
   double phase_time = 0.0;      // > 0: this player's mobs ignore the map
+  double magnet_time = 0.0;     // > 0: this player's mobs drift toward the gate ahead
   bool giant_requested = false;
   bool phase_requested = false;
   std::optional<Vec2> bomb_request;
@@ -68,12 +69,23 @@ inline constexpr double kPhaseSeconds = 5.0;
 inline constexpr double kPhaseCooldown = 20.0;  // counted from when Phase ends
 inline constexpr double kSawCooldown = 0.8;     // a mob a saw cut is safe from it for this long
 inline constexpr double kPowerUpRadius = 0.9;
-inline constexpr std::size_t kMaxPowerUps = 2;
+inline constexpr std::size_t kMaxPowerUps = 3;
+inline constexpr double kFreezeSeconds = 6.0;   // enemy mobs march at half speed
+inline constexpr double kFlipSeconds = 7.0;     // every gate counts as "/2" for the enemy
+inline constexpr double kMagnetSeconds = 8.0;   // your mobs drift toward the next gate
+inline constexpr double kShieldShare = 0.15;    // of the base's max health, soaked up before the base
 
 struct Base {
   Team team = Team::Blue;
   int hp = 0;
   int max_hp = 0;
+};
+
+// Team-wide effects from power-ups.
+struct TeamEffects {
+  double frozen = 0.0;   // seconds this team's mobs still march at half speed
+  double flipped = 0.0;  // seconds every gate still counts as "/2" for this team
+  int shield = 0;        // damage this team's base still soaks up
 };
 
 struct Bomb {
@@ -86,12 +98,12 @@ struct Bomb {
   int damage = kBombDamage;
 };
 
-// A "+1 shot" target drifting across the lane. A player's grunts and runners
-// that run into it are spent on it, one hit point for one; the player whose
-// mob breaks it fires one more mob in every volley for the rest of the level.
-// The AI's mobs and giants pass by it.
+// A target drifting across the lane. A player's grunts and runners that run
+// into it are spent on it, one hit point for one; the player whose mob breaks
+// it gets its effect. The AI's mobs and giants pass by it.
 struct PowerUp {
   std::uint32_t id = 0;
+  PowerUpKind kind = PowerUpKind::Shot;
   Vec2 position;
   double velocity = 0.0;  // along x, units a second
   int hp = 0;
@@ -106,7 +118,7 @@ enum class EventType : std::uint8_t {
   SawCut = 5,
   Frenzy = 6,       // every gate just got stronger
   BossSpawn = 7,
-  PowerUp = 8,      // a power-up broke; index: the player who broke it, value: their new shots per volley
+  PowerUp = 8,      // a power-up broke; index: the player who broke it, value: its PowerUpKind
   Phase = 9,        // index: the player whose mobs just started to phase
 };
 
@@ -170,6 +182,7 @@ class World {
   [[nodiscard]] const Base& base(Team team) const { return bases_.at(team_index(team)); }
   [[nodiscard]] const std::vector<Bomb>& bombs() const { return bombs_; }
   [[nodiscard]] const std::vector<PowerUp>& powerups() const { return powerups_; }
+  [[nodiscard]] const TeamEffects& effects(Team team) const { return effects_.at(team_index(team)); }
   [[nodiscard]] double gate_x(std::size_t index) const;
   [[nodiscard]] double saw_x(std::size_t index) const;
   [[nodiscard]] std::uint64_t ticks() const { return ticks_; }
@@ -192,6 +205,8 @@ class World {
   void step_ai(double dt);
   void step_bombs(double dt);
   void step_powerups(double dt);
+  void break_powerup(const PowerUp& powerup, Cannon& breaker);
+  PowerUpKind roll_powerup_kind();
   void step_mobs(double dt);
   void apply_gate(std::size_t gate_index, Mob& mob, std::vector<Mob>& born);
   void resolve_contacts(double dt);
@@ -205,6 +220,8 @@ class World {
   std::array<Base, kTeamCount> bases_{};
   std::vector<Bomb> bombs_;
   std::vector<PowerUp> powerups_;
+  std::array<TeamEffects, kTeamCount> effects_{};
+  bool flip_useful_ = false;  // both teams have gates, so a flip can hurt someone
   std::vector<Event> events_;
   std::vector<std::pair<int, Tally>> tallies_;
   Tally unowned_tally_;

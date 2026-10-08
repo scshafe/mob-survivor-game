@@ -31,6 +31,14 @@ check(snap.gateX.length === expected.gates, 'gates');
 check(snap.events.length === expected.events, 'events');
 check(snap.cannons[0].volley === expected.volley, 'first cannon volley');
 check(snap.powerups.length === expected.powerups, 'power-ups');
+[expected.blueEffects, expected.redEffects].forEach((want, t) => {
+  const got = snap.effects[t];
+  check(got.shield === want.shield, `team ${t} shield`);
+  check(Math.abs(got.frozen - want.frozen) <= 0.051, `team ${t} frozen`);
+  check(Math.abs(got.flipped - want.flipped) <= 0.051, `team ${t} flipped`);
+});
+const effectOn = (e) => e.shield > 0 || e.frozen > 0 || e.flipped > 0;
+check(effectOn(expected.blueEffects) || effectOn(expected.redEffects), 'the fixture has a team effect on');
 check(snap.cannons.filter((c) => c.phasing).length === expected.phasingCannons, 'phasing cannons');
 check(snap.cannons.every((c) => c.phase >= 0 && c.phase <= 1), 'phase meters');
 check(snap.mobs.phased.reduce((a, b) => a + b, 0) === expected.phasedMobs, 'phased mobs');
@@ -40,6 +48,7 @@ check(expected.powerups > 0, 'the fixture has a power-up');
 if (expected.firstPowerUp) {
   const p = snap.powerups[0];
   check(p.id === expected.firstPowerUp.id, 'power-up id');
+  check(p.kind === expected.firstPowerUp.kind, 'power-up kind');
   check(Math.abs(p.x - expected.firstPowerUp.x) <= 0.006, 'power-up x');
   check(Math.abs(p.y - expected.firstPowerUp.y) <= 0.006, 'power-up y');
   check(p.hp === expected.firstPowerUp.hp && p.max === expected.firstPowerUp.max, 'power-up hp');

@@ -37,6 +37,30 @@ their own base at the bottom (Red's view is turned 180 degrees).
   newly fired) ignore the map, meaning saw blades and "/2" gates, but still
   fight enemy mobs, take bomb damage and hit the base as usual. It recharges
   for 20 s after it ends, and starts each level ready.
+- **Power-ups**: orbs drift in from one side wall and out by the other
+  (1.4-2.4 units a second). A player's grunts and runners that run into one
+  are spent on it, one hit point for one; the player whose mob breaks it gets
+  its effect. The AI's mobs and giants pass them by. Kinds, and how often
+  each turns up:
+  - **+1 shot** (gold, 40%): the breaker fires one more mob every volley for
+    the rest of the level, up to three.
+  - **Freeze** (blue, 15%): the breaker's enemies march at half speed for 6 s.
+  - **Flip** (pink, 15%): for 7 s every gate counts as "/2" for the breaker's
+    enemies (Phase and Lucky Charm still protect). Only on levels where both
+    sides have gates; elsewhere it is a +1 shot.
+  - **Shield** (white, 15%): the breaker's base soaks up the next 15% of its
+    max health in damage.
+  - **Magnet** (green, 15%): for 8 s the breaker's grunts drift toward the
+    nearest helpful gate ahead.
+
+  Campaign: the first after 6 s, then about every 9 s, 10 + 2 x level hit
+  points (at most 30), between the first and last gate rows. Versus: the first
+  after 15 s, then about every 22 s, 40 hit points, 3-6.5 units either side of
+  the centre line. At most three at once.
+- **Phase**: a rechargeable power. For 5 s a player's mobs (on the field and
+  newly fired) ignore the map, meaning saw blades and "/2" gates, but still
+  fight enemy mobs, take bomb damage and hit the base as usual. It recharges
+  for 20 s after it ends, and starts each level ready.
 - **Power-ups**: a gold "+1" orb drifts in from one side wall and out by the
   other (1.4-2.4 units a second). A player's grunts and runners that run into
   it are spent on it, one hit point for one; the player whose mob breaks it
@@ -87,7 +111,8 @@ then the field).
 - Roguelite upgrade cards between levels.
 - Bombs you aim yourself (with a vim-style keyboard aimer), giants you
   launch when you choose, and Phase to slip a crowd past the hazards.
-- Drifting "+1 shot" power-ups you have to hit to claim.
+- Drifting power-ups (+1 shot, freeze, flip, shield, magnet) you have to hit
+  to claim.
 - Sliding gates, `/2` gates, shared gates and saw blades.
 - Boss levels, the versus Frenzy, emotes and a hall of fame.
 
@@ -97,9 +122,9 @@ then the field).
 built-in bot (`src/core/bot.cpp`) plays the campaign and versus at a chosen
 skill, goes for power-ups when nothing threatens its base, and phases when a
 dozen of its mobs are about to meet a saw or a "/2" gate. At the numbers in
-the code, a skilled bot alone clears 4-15 campaign levels (about 9 on average
+the code, a skilled bot alone clears 4-14 campaign levels (about 8 on average
 over seeds 1-12); an idle player loses level 1 in about 30 s; bot-against-bot
-versus rounds last one to three minutes (about 100 s on average over seeds
-1-8). Saws deal about 390 damage a minute of campaign play, across both
+versus rounds last one to three minutes (about 110 s on average over seeds
+1-8). Saws deal about 330 damage a minute of campaign play, across both
 teams (680 before they were softened and Phase was added). `tests/match_test.cpp` keeps the
 broad shape (levels can be cleared, an idle player loses, versus ends).

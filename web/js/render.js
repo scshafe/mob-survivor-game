@@ -19,6 +19,14 @@ const GATE_STYLE = {
   half: { fill: 'rgba(244,63,94,0.32)', edge: '#fb7185', text: '#ffe4e6' },
 };
 const SHARED_EDGE = '#c084fc';
+// Power-up orbs by kind (PowerUpKind): gradient light and dark, and a glyph.
+const ORB_STYLE = [
+  { light: '#fef9c3', dark: '#ca8a04', glow: 'rgba(253,224,71,0.25)', ring: '#fde047', glyph: '+1', ink: '#422006' },
+  { light: '#e0f2fe', dark: '#0284c7', glow: 'rgba(125,211,252,0.28)', ring: '#7dd3fc', glyph: '❄', ink: '#f0f9ff' },
+  { light: '#f5d0fe', dark: '#a21caf', glow: 'rgba(232,121,249,0.25)', ring: '#e879f9', glyph: '÷2', ink: '#fdf4ff' },
+  { light: '#f8fafc', dark: '#64748b', glow: 'rgba(226,232,240,0.28)', ring: '#e2e8f0', glyph: '🛡', ink: '#0f172a' },
+  { light: '#dcfce7', dark: '#15803d', glow: 'rgba(134,239,172,0.25)', ring: '#86efac', glyph: '🧲', ink: '#052e16' },
+];
 
 export function gateLabel(gate, frenzy) {
   if (gate.op === 'mul') return `×${gate.v + (frenzy ? 1 : 0)}`;
@@ -264,6 +272,22 @@ export class Renderer {
         roundRect(ctx, barX, barY, barW * ratio, s * 0.4, s * 0.2);
         ctx.fill();
       }
+      // A power-up shield: a bright rim along the wall, with what it still soaks up.
+      const shield = view.effects?.[team]?.shield ?? 0;
+      if (shield > 0) {
+        const rim = this.sy(far) + (inward < 0 ? -s * 0.9 : s * 0.9);
+        ctx.strokeStyle = `rgba(226,232,240,${0.55 + 0.25 * Math.sin(frame.time * 5)})`;
+        ctx.lineWidth = Math.max(3, s * 0.25);
+        ctx.beginPath();
+        ctx.moveTo(left + s * 0.3, rim);
+        ctx.lineTo(left + width - s * 0.3, rim);
+        ctx.stroke();
+        ctx.font = `800 ${Math.max(10, s * 0.55)}px system-ui, sans-serif`;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText(`🛡 ${shield}`, left + width - s * 0.4, rim + (inward < 0 ? -s * 0.6 : s * 0.6));
+      }
       // Hit flash.
       const flash = frame.baseFlash[team];
       if (flash > 0) {
@@ -316,6 +340,19 @@ export class Renderer {
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.font = `700 ${fontSize * 0.55}px system-ui, sans-serif`;
         ctx.fillText('⇄', left + width / 2, top - fontSize * 0.35);
+      }
+      // Flipped by a power-up: "/2" for that team, on the side it comes from.
+      for (let team = 0; team < 2; team++) {
+        if (!(gate.teams & (1 << team)) || !(view.effects?.[team]?.flipped > 0)) continue;
+        const side = this.screenUp(team) > 0 ? 1 : -1; // the team arrives from below on screen when up
+        const bx = left + width / 2;
+        const by = top + height / 2 + side * height * 0.95;
+        ctx.fillStyle = `rgba(190,24,93,${0.75 + 0.2 * Math.sin(time * 12)})`;
+        roundRect(ctx, bx - fontSize * 1.1, by - fontSize * 0.42, fontSize * 2.2, fontSize * 0.84, fontSize * 0.3);
+        ctx.fill();
+        ctx.font = `900 ${fontSize * 0.62}px system-ui, sans-serif`;
+        ctx.fillStyle = '#fff';
+        ctx.fillText(`÷2 ${TEAM[team].name}`, bx, by + 1);
       }
     });
   }
@@ -394,6 +431,21 @@ export class Renderer {
       ctx.ellipse(x, y, r, r * 0.55, 0, 0, Math.PI * 2);
     }
     ctx.fill();
+    // Frozen teams: a frosty halo.
+    for (let team = 0; team < 2; team++) {
+      if (!(view.effects?.[team]?.frozen > 0)) continue;
+      ctx.fillStyle = 'rgba(186,230,253,0.5)';
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        if (m.teams[i] !== team) continue;
+        const r = mobRadius(m.kinds[i], m.hps[i]) * s * 1.35;
+        const x = this.sx(m.xs[i]);
+        const y = this.sy(m.ys[i]);
+        ctx.moveTo(x + r, y);
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+      }
+      ctx.fill();
+    }
     // Phasing mobs shimmer: a pale aura under the body.
     ctx.fillStyle = 'rgba(165,243,252,0.45)';
     ctx.beginPath();
@@ -592,6 +644,12 @@ export class Renderer {
         ctx.fill();
       }
       ctx.globalAlpha = 1;
+      if (cannon.magnet) {
+        ctx.font = `${Math.max(10, s * 0.7)}px system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🧲', x - s * 1.3, y);
+      }
       // Shots per volley, once a power-up raised it.
       if (cannon.volley > 1) {
         const badgeX = x + s * 1.25;
@@ -678,7 +736,7 @@ export class Renderer {
     }
   }
 
-  // "+1 shot" targets: a gold orb with a ring that empties as it is hit.
+  // Power-up orbs, coloured by kind, with a ring that empties as they are hit.
   drawPowerUps(view, time, level) {
     const ctx = this.ctx;
     const s = this.scale;
@@ -687,20 +745,21 @@ export class Renderer {
       const x = this.sx(powerup.x);
       const y = this.sy(powerup.y);
       const pulse = 1 + 0.06 * Math.sin(time * 6 + powerup.id);
-      ctx.fillStyle = 'rgba(253,224,71,0.25)';
+      const style = ORB_STYLE[powerup.kind] ?? ORB_STYLE[0];
+      ctx.fillStyle = style.glow;
       ctx.beginPath();
       ctx.arc(x, y, radius * 1.5 * pulse, 0, Math.PI * 2);
       ctx.fill();
       const orb = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, radius * 0.1, x, y, radius);
-      orb.addColorStop(0, '#fef9c3');
-      orb.addColorStop(1, '#ca8a04');
+      orb.addColorStop(0, style.light);
+      orb.addColorStop(1, style.dark);
       ctx.fillStyle = orb;
       ctx.beginPath();
       ctx.arc(x, y, radius * pulse, 0, Math.PI * 2);
       ctx.fill();
       // What is left to break, as an arc around the orb.
       const left = powerup.max > 0 ? powerup.hp / powerup.max : 1;
-      ctx.strokeStyle = '#fde047';
+      ctx.strokeStyle = style.ring;
       ctx.lineWidth = Math.max(2, s * 0.14);
       ctx.beginPath();
       ctx.arc(x, y, radius * 1.3, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
@@ -708,8 +767,8 @@ export class Renderer {
       ctx.font = `900 ${Math.max(10, s * 0.75)}px system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#422006';
-      ctx.fillText('+1', x, y + s * 0.03);
+      ctx.fillStyle = style.ink;
+      ctx.fillText(style.glyph, x, y + s * 0.03);
     }
   }
 

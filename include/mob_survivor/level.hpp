@@ -54,7 +54,16 @@ struct AiSpec {
   int boss_hp = 0;
 };
 
-// How "+1 shot" power-ups appear: one drifts in from a side wall every so
+enum class PowerUpKind : std::uint8_t {
+  Shot = 0,    // the breaker fires one more mob every volley for the rest of the level
+  Freeze = 1,  // the breaker's enemies march at half speed for a while
+  Flip = 2,    // for a while every gate counts as "/2" for the breaker's enemies
+  Shield = 3,  // the breaker's base soaks up some damage
+  Magnet = 4,  // for a while the breaker's mobs drift toward the gate ahead
+};
+inline constexpr int kPowerUpKinds = 5;
+
+// How power-ups appear: one drifts in from a side wall every so
 // often, on a line between y_min and y_max, and leaves by the other wall.
 struct PowerUpSpec {
   double first = 0.0;     // seconds before the first one (0: none this level)
@@ -65,6 +74,9 @@ struct PowerUpSpec {
   bool mirror = false;    // versus: just as likely on the far side of the centre line
   double speed_min = 1.4;
   double speed_max = 2.4;
+  // How often each kind turns up, by PowerUpKind. A flip on a level where it
+  // could hurt nobody (one side has no gates) becomes a "+1 shot".
+  std::array<double, kPowerUpKinds> weights{0.4, 0.15, 0.15, 0.15, 0.15};
 };
 
 struct LevelSpec {

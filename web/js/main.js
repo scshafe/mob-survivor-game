@@ -6,7 +6,7 @@ import { GameView } from './game.js';
 import { PLAYER_COLORS } from './render.js';
 import { isMuted, setMuted, sfx, unlockAudio } from './audio.js';
 
-const PROTOCOL = 3;
+const PROTOCOL = 4;
 const DEFAULT_NAME = /^Player \d+$/;
 const EMOTES = ['👍', '😂', '😱', '🔥', '😡', '🎉'];
 const CARD_GLYPHS = {

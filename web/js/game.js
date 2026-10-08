@@ -1,7 +1,7 @@
 // The match as the player sees it: buffers snapshots, interpolates between
 // them, turns events into effects and sounds, reads input and draws.
 
-import { decodeSnapshot, mobIndex, Phase, EventType, MobKind, Outcome } from './snapshot.js';
+import { decodeSnapshot, mobIndex, Phase, EventType, MobKind, Outcome, PowerUpKind } from './snapshot.js';
 import { Renderer, Effects, TEAM, PLAYER_COLORS } from './render.js';
 import { sfx, unlockAudio } from './audio.js';
 
@@ -193,6 +193,7 @@ export class GameView {
       frenzy: a.frenzy,
       outcome: a.outcome,
       bases: a.bases,
+      effects: a.effects,
       bombs: a.bombs.map((bomb) => ({ ...bomb, fuse: Math.max(0, bomb.fuse - Math.max(0, renderTime - a.time)) })),
       gateX: a.gateX.map((x, i) => (b && b.gateX[i] !== undefined ? x + (b.gateX[i] - x) * alpha : x)),
       sawX: a.sawX.map((x, i) => (b && b.sawX[i] !== undefined ? x + (b.sawX[i] - x) * alpha : x)),
@@ -325,18 +326,9 @@ export class GameView {
         this.showBanner('FRENZY!', 'Every gate is stronger', '#e9d5ff');
         sfx.frenzy();
         break;
-      case EventType.PowerUp: {
-        this.effects.ring(event.x, event.y, 2.4, '#fde047', 0.6);
-        this.effects.sparks(event.x, event.y, '#fde047', 26);
-        this.effects.text(event.x, event.y, '+1 shot', '#fef08a', 1.3, 1.2);
-        if (event.index === this.mySlot) {
-          this.showBanner('+1 SHOT', `${event.value} mobs every volley`, '#fef08a', 1400);
-          sfx.powerUp();
-        } else {
-          sfx.gate(4);
-        }
+      case EventType.PowerUp:
+        this.playPowerUp(event, mine);
         break;
-      }
       case EventType.Phase: {
         this.effects.ring(event.x, event.y, 3.2, '#a5f3fc', 0.6);
         this.effects.ring(event.x, event.y, 1.8, '#ecfeff', 0.4);
@@ -352,6 +344,47 @@ export class GameView {
       default:
         break;
     }
+  }
+
+  // A power-up broke: a burst, a label, and a banner for whoever it touches.
+  playPowerUp(event, mine) {
+    const look = {
+      [PowerUpKind.Shot]: { color: '#fde047', label: '+1 shot' },
+      [PowerUpKind.Freeze]: { color: '#7dd3fc', label: '❄ Freeze' },
+      [PowerUpKind.Flip]: { color: '#e879f9', label: '÷2 Flip' },
+      [PowerUpKind.Shield]: { color: '#e2e8f0', label: '🛡 Shield' },
+      [PowerUpKind.Magnet]: { color: '#86efac', label: '🧲 Magnet' },
+    }[event.value] ?? { color: '#fde047', label: '' };
+    this.effects.ring(event.x, event.y, 2.4, look.color, 0.6);
+    this.effects.sparks(event.x, event.y, look.color, 26);
+    this.effects.text(event.x, event.y, look.label, look.color, 1.3, 1.2);
+    const byMe = event.index === this.mySlot;
+    const ours = event.team === mine;
+    let banner = null;
+    switch (event.value) {
+      case PowerUpKind.Shot: {
+        const volley = this.prev?.cannons.find((c) => c.slot === event.index)?.volley ?? 2;
+        if (byMe) banner = ['+1 SHOT', `${volley} mobs every volley`];
+        break;
+      }
+      case PowerUpKind.Freeze:
+        banner = ours ? ['FREEZE!', 'Enemies march at half speed'] : ['FROZEN', 'Your mobs march at half speed'];
+        break;
+      case PowerUpKind.Flip:
+        banner = ours ? ['GATES FLIPPED', 'Every gate halves the enemy'] : ['FLIPPED!', 'Your gates halve you for a while'];
+        break;
+      case PowerUpKind.Shield:
+        if (ours) banner = ['SHIELD', `Your base soaks up ${this.prev?.effects[event.team].shield ?? ''}`];
+        break;
+      case PowerUpKind.Magnet:
+        if (byMe) banner = ['MAGNET', 'Your mobs drift into the gates'];
+        break;
+      default:
+        break;
+    }
+    if (banner && this.mySlot >= 0) this.showBanner(banner[0], banner[1], ours ? look.color : '#fca5a5', 1400);
+    if (byMe) sfx.powerUp();
+    else sfx.gate(4);
   }
 
   onPhase(snap) {

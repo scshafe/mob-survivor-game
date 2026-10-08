@@ -184,7 +184,7 @@ void a_destroyed_base_ends_the_level() {
   CHECK(world.elapsed() == elapsed);  // frozen once decided
 }
 
-// One power-up at a time on the line y = 20, drifting at 2 units a second.
+// "+1 shot" power-ups, one at a time on the line y = 20, drifting at 2 units a second.
 WorldConfig with_powerups(int hp, double interval = 100.0) {
   WorldConfig config = bare();
   config.level.powerups.first = 0.5;
@@ -194,6 +194,7 @@ WorldConfig with_powerups(int hp, double interval = 100.0) {
   config.level.powerups.y_max = 20.0;
   config.level.powerups.speed_min = 2.0;
   config.level.powerups.speed_max = 2.0;
+  config.level.powerups.weights = {1.0, 0.0, 0.0, 0.0, 0.0};  // "+1 shot" only
   return config;
 }
 
@@ -240,7 +241,7 @@ void breaking_a_power_up_adds_a_shot_to_every_volley() {
   CHECK(world.cannon(0)->shots_per_volley == 2);
   const auto events = world.take_events();
   CHECK(std::any_of(events.begin(), events.end(), [](const Event& e) {
-    return e.type == EventType::PowerUp && e.index == 0 && e.value == 2;
+    return e.type == EventType::PowerUp && e.index == 0 && e.value == static_cast<int>(PowerUpKind::Shot);
   }));
   // What was left of the squad marches on.
   const auto blue = std::count_if(world.mobs().begin(), world.mobs().end(), [](const Mob& m) { return m.team == Team::Blue; });
@@ -268,6 +269,86 @@ void volley_bonuses_stop_at_the_cap() {
   }
   CHECK(breaks > kMaxShotsPerVolley);
   CHECK(world.cannon(0)->shots_per_volley == kMaxShotsPerVolley);
+}
+
+// A world where one power-up of `kind` (1 hp) has just been broken by
+// player 0, over the given gates.
+World broke(PowerUpKind kind, std::vector<Gate> gates = {}) {
+  WorldConfig config = with_powerups(1);
+  config.level.gates = std::move(gates);
+  config.level.powerups.weights = {};
+  config.level.powerups.weights.at(static_cast<std::size_t>(kind)) = 1.0;
+  World world(std::move(config));
+  for (int i = 0; i < 3 * 30; ++i) world.step(kTickSeconds);
+  CHECK(world.powerups().size() == 1 && world.powerups().front().kind == kind);
+  world.spawn(owned_grunt(world.powerups().front().position.x, 19.9, 1));
+  world.step(kTickSeconds);
+  CHECK(world.powerups().empty());
+  const auto events = world.take_events();
+  CHECK(std::any_of(events.begin(), events.end(), [kind](const Event& e) {
+    return e.type == EventType::PowerUp && e.value == static_cast<int>(kind) && e.index == 0;
+  }));
+  return world;
+}
+
+void freeze_slows_the_enemy() {
+  World world = broke(PowerUpKind::Freeze);
+  CHECK(world.effects(Team::Red).frozen > 0.0 && world.effects(Team::Blue).frozen == 0.0);
+  world.spawn(grunt(Team::Red, 3.0, 30.0));
+  world.spawn(owned_grunt(21.0, 8.0, 1));
+  world.step(0.5);
+  for (const Mob& mob : world.mobs()) {
+    const double moved = mob.team == Team::Red ? 30.0 - mob.position.y : mob.position.y - 8.0;
+    CHECK_NEAR(moved, mob_speed(MobKind::Grunt) * 0.5 * (mob.team == Team::Red ? 0.5 : 1.0), 1e-9);
+  }
+  for (int i = 0; i < static_cast<int>(kFreezeSeconds * 30); ++i) world.step(kTickSeconds);
+  CHECK(world.effects(Team::Red).frozen == 0.0);
+}
+
+void a_flip_turns_the_enemys_gates_into_halving_ones() {
+  Gate gate;
+  gate.x = 12.0;
+  gate.y = 30.0;
+  gate.width = kFieldWidth;
+  gate.op = GateOp::Mul;
+  gate.value = 3;
+  gate.teams = team_bit(Team::Blue) | team_bit(Team::Red);
+  World world = broke(PowerUpKind::Flip, {gate});
+  CHECK(world.effects(Team::Red).flipped > 0.0);
+  world.spawn(grunt(Team::Red, 3.0, 30.3, 8));
+  world.step(0.2);
+  int red = 0;
+  for (const Mob& mob : world.mobs()) red += mob.team == Team::Red ? mob.hp : 0;
+  CHECK(red == 4);
+}
+
+void a_shield_soaks_up_base_damage() {
+  World world = broke(PowerUpKind::Shield);
+  CHECK(world.effects(Team::Blue).shield == 15);  // 15% of 100
+  world.spawn(grunt(Team::Red, 3.0, kBaseDepth + 0.1, 10));
+  world.step(0.1);
+  CHECK(world.base(Team::Blue).hp == 100);
+  CHECK(world.effects(Team::Blue).shield == 5);
+  world.spawn(grunt(Team::Red, 3.0, kBaseDepth + 0.1, 10));
+  world.step(0.1);
+  CHECK(world.base(Team::Blue).hp == 95);
+  CHECK(world.effects(Team::Blue).shield == 0);
+}
+
+void a_magnet_pulls_mobs_toward_the_gate_ahead() {
+  Gate gate;
+  gate.x = 18.0;
+  gate.y = 32.0;
+  gate.width = 3.0;
+  gate.op = GateOp::Mul;
+  gate.value = 2;
+  World world = broke(PowerUpKind::Magnet, {gate});
+  CHECK(world.cannon(0)->magnet_time > 0.0);
+  const std::uint32_t id = world.spawn(owned_grunt(12.0, 24.0, 1));
+  for (int i = 0; i < 30; ++i) world.step(kTickSeconds);
+  for (const Mob& mob : world.mobs()) {
+    if (mob.id == id) CHECK(mob.position.x > 14.0);
+  }
 }
 
 // A fixed saw on the line y = 20 and a "/2" gate across the lane at y = 26.
@@ -426,5 +507,9 @@ int main() {
   saws_cut_a_squad_once_and_throw_it_clear();
   phase_lets_mobs_ignore_saws_and_halving_gates();
   phase_runs_out_then_recharges();
+  freeze_slows_the_enemy();
+  a_flip_turns_the_enemys_gates_into_halving_ones();
+  a_shield_soaks_up_base_damage();
+  a_magnet_pulls_mobs_toward_the_gate_ahead();
   return check::finish("world_test");
 }
