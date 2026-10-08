@@ -45,6 +45,7 @@ struct Cannon {
   double fire_timer = 0.0;
   double charge = 0.0;  // 0..1; a giant is ready at 1
   double bomb_cooldown = 0.0;
+  int shots_per_volley = 1;  // raised for the rest of the level by breaking power-ups
   PlayerStats stats;
   bool giant_requested = false;
   std::optional<Vec2> bomb_request;
@@ -57,6 +58,9 @@ inline constexpr double kBombFuse = 0.8;
 inline constexpr double kBombRadius = 2.6;
 inline constexpr int kBombDamage = 6;
 inline constexpr std::size_t kMaxMobsPerTeam = 300;
+inline constexpr int kMaxShotsPerVolley = 3;
+inline constexpr double kPowerUpRadius = 0.9;
+inline constexpr std::size_t kMaxPowerUps = 2;
 
 struct Base {
   Team team = Team::Blue;
@@ -74,6 +78,18 @@ struct Bomb {
   int damage = kBombDamage;
 };
 
+// A "+1 shot" target drifting across the lane. A player's grunts and runners
+// that run into it are spent on it, one hit point for one; the player whose
+// mob breaks it fires one more mob in every volley for the rest of the level.
+// The AI's mobs and giants pass by it.
+struct PowerUp {
+  std::uint32_t id = 0;
+  Vec2 position;
+  double velocity = 0.0;  // along x, units a second
+  int hp = 0;
+  int max_hp = 0;
+};
+
 enum class EventType : std::uint8_t {
   GatePass = 1,     // value: mobs gained (or lost, negative) at gate `index`
   BaseHit = 2,      // value: damage dealt to `team`'s base
@@ -82,6 +98,7 @@ enum class EventType : std::uint8_t {
   SawCut = 5,
   Frenzy = 6,       // every gate just got stronger
   BossSpawn = 7,
+  PowerUp = 8,      // a power-up broke; index: the player who broke it, value: their new shots per volley
 };
 
 struct Event {
@@ -142,6 +159,7 @@ class World {
   [[nodiscard]] const std::array<Base, kTeamCount>& bases() const { return bases_; }
   [[nodiscard]] const Base& base(Team team) const { return bases_.at(team_index(team)); }
   [[nodiscard]] const std::vector<Bomb>& bombs() const { return bombs_; }
+  [[nodiscard]] const std::vector<PowerUp>& powerups() const { return powerups_; }
   [[nodiscard]] double gate_x(std::size_t index) const;
   [[nodiscard]] double saw_x(std::size_t index) const;
   [[nodiscard]] std::uint64_t ticks() const { return ticks_; }
@@ -161,6 +179,7 @@ class World {
   void step_cannons(double dt);
   void step_ai(double dt);
   void step_bombs(double dt);
+  void step_powerups(double dt);
   void step_mobs(double dt);
   void apply_gate(std::size_t gate_index, Mob& mob, std::vector<Mob>& born);
   void resolve_contacts(double dt);
@@ -173,6 +192,7 @@ class World {
   std::vector<Cannon> cannons_;
   std::array<Base, kTeamCount> bases_{};
   std::vector<Bomb> bombs_;
+  std::vector<PowerUp> powerups_;
   std::vector<Event> events_;
   std::vector<std::pair<int, Tally>> tallies_;
   Tally unowned_tally_;
@@ -186,6 +206,7 @@ class World {
   double wave_timer_ = 0.0;
   double boss_timer_ = 0.0;
   int wave_index_ = 0;
+  double powerup_timer_ = 0.0;
 
   // Gate effects collected during one step, emitted as one event per gate.
   std::vector<int> gate_gain_;

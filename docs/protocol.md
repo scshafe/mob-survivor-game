@@ -1,4 +1,4 @@
-# Wire protocol (version 1)
+# Wire protocol (version 2)
 
 One WebSocket per browser tab, at `GET /ws`. Text frames carry JSON objects,
 each with a type in `t`. Binary frames carry snapshots (server to client only).
@@ -51,7 +51,7 @@ Bump `kProtocolVersion` (`src/net/protocol.hpp`) and `PROTOCOL`
 | `rooms` | `rooms`: `[{code, mode, phase, seated, members, maxSeats, host, level?}]` |
 | `board` | `entries`: `[{names, levels, kills, when}]`, best first |
 | `room` | `code`, `mode`, `public`, `phase` (`lobby`\|`countdown`\|`playing`\|`upgrade`\|`over`), `host`, `you`, `maxSeats`, `members`: `[{id, name, team, bot, seated, slot, connected, host}]` |
-| `level` | `serial`, `level`, `mode`, `boss`, `field` `{w, h, baseDepth, cannonOffset}`, `timeLimit`, `frenzyAt`, `gates`: `[{x, y, w, op, v, teams, moving}]`, `saws`: `[{y, r}]` |
+| `level` | `serial`, `level`, `mode`, `boss`, `field` `{w, h, baseDepth, cannonOffset, powerUpRadius, maxVolley}`, `timeLimit`, `frenzyAt`, `gates`: `[{x, y, w, op, v, teams, moving}]`, `saws`: `[{y, r}]` |
 | `cards` | `cleared`, `picked`, `cards`: `[{key, title, text, taken}]` |
 | `picks` | `picked`: slots that have chosen |
 | `over` | `mode`, `outcome` (`blue`\|`red`\|`draw`), `levels`, `rank` (hall of fame place or -1), `players`: `[{slot, name, team, bot, shots, gateMobs, kills, baseDamage, giants, bombs}]` |
@@ -78,17 +78,22 @@ of a world unit.
 | flags (bit 0: frenzy) | u8 |
 | outcome (0 none, 1 Blue wins, 2 Red wins, 3 draw) | u8 |
 | bases, Blue then Red: hp, max hp | 2 x (i32, i32) |
-| cannon count, then each: slot u8, team u8, x coord, charge u8 (/255), bomb cooldown u8 (tenths of s), flags u8 (1 connected, 2 firing, 4 giant ready) | u8 + n x 7 |
+| cannon count, then each: slot u8, team u8, x coord, charge u8 (/255), bomb cooldown u8 (tenths of s), flags u8 (1 connected, 2 firing, 4 giant ready), mobs per volley u8 | u8 + n x 8 |
 | gate count, then each gate's current x | u8 + n x coord |
 | saw count, then each saw's current x | u8 + n x coord |
 | bomb count, then each: team u8, from x, from y, target x, target y, radius (coords), fuse u8 (hundredths of s) | u8 + n x 12 |
+| power-up count, then each: id u32, x, y (coords), hp u16, max hp u16 | u8 + n x 12 |
 | event count, then each: type u8, team u8, index i16, x, y (coords), value i32 | u16 + n x 12 |
 | mob count, then each: id u32, x, y (coords), team and kind u8 (bit 0 team, bits 1-3 kind), hp u16 | u16 + n x 11 |
 
 Mob kinds: 0 grunt, 1 runner, 2 giant, 3 brute. Event types: 1 gate pass
 (value: mobs gained, negative for a "/2" cull; index: gate), 2 base hit (team:
 the base hit; value: damage), 3 bomb blast (value: mobs destroyed), 4 giant
-launch, 5 saw cut, 6 frenzy, 7 boss spawn.
+launch, 5 saw cut, 6 frenzy, 7 boss spawn, 8 power-up broken (index: the
+player slot that broke it; value: that player's new mobs per volley).
+
+Power-up ids come from the same counter as mob ids, so the client can
+interpolate them by id the same way.
 
 The client interpolates mob positions between consecutive snapshots by mob id
 and renders about 110 ms behind the newest one. A mob present in one snapshot

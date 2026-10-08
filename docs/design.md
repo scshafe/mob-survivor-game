@@ -30,6 +30,30 @@ their own base at the bottom (Red's view is turned 180 degrees).
   a giant (15 hp, tramples squads). **Bombs**: thrown at any point, land after
   0.8 s, deal 6 to every enemy mob within 2.6 units; 13 s cooldown.
 - **Saw blades** slide along a rail and cut any mob they touch, either team.
+- **Power-ups**: a gold "+1" orb drifts in from one side wall and out by the
+  other (1.4-2.4 units a second). A player's grunts and runners that run into
+  it are spent on it, one hit point for one; the player whose mob breaks it
+  fires one more mob every volley for the rest of the level, up to three. The
+  AI's mobs and giants pass it by. Campaign: the first after 7 s, then about
+  every 16 s, 10 + 2 x level hit points (at most 30), between the first and
+  last gate rows. Versus: the first after 15 s, then about every 22 s, 40 hit
+  points, 3-6.5 units either side of the centre line. At most two at once.
+
+## Controls
+
+The keyboard drives the game; the mouse does not move, fire or aim (a phone's
+touch screen still does: drag to slide, hold to fire, tap the bomb button and
+then the field).
+
+- `A`/`D` or the arrows slide the cannon; hold `Space` to fire.
+- `G` (or `E`) launches a charged giant.
+- `B` (or `Q`) shows the bomb aimer on the nearest enemy group; `B` again or
+  `Enter` throws it (once the bomb is off cooldown), `Esc` puts it away. The
+  aimer moves vim-style, in screen directions: `h` `j` `k` `l` one unit, a
+  count first repeats the step (`5k`), `0`/`$` jump to the left/right wall,
+  `H`/`M`/`L` to the top/middle/bottom of the field, `n`/`N` to the next
+  enemy group farther from/nearer to your base. Any motion also shows the
+  aimer.
 
 ## Modes
 
@@ -40,8 +64,9 @@ their own base at the bottom (Red's view is turned 180 degrees).
   level and the number of players. Losing the base ends the run; the run's
   levels cleared go to the hall of fame.
 - **Upgrade cards**: after each cleared level every player picks one of three
-  cards (rapid fire, twin barrel, generous and golden gates, lucky charm,
-  quick charge, heavy giants, demolitions, sprinters, fortify). Some stack.
+  cards (rapid fire, lucky charm, quick charge, heavy giants, demolitions,
+  sprinters, fortify). Some stack. No card adds mobs to a volley or to a
+  gate: extra mobs a volley come only from power-ups, within a level.
 - **Versus** (1v1 or 2v2, bots fill empty seats): a point-symmetric arena,
   so both sides meet the same gates in the same order. Bases have 4000 health
   (+2000 per extra player on the larger side). At 2:30 the **Frenzy** makes
@@ -52,7 +77,9 @@ their own base at the bottom (Red's view is turned 180 degrees).
 
 - Co-op campaign and live versus, in the browser, with drop-in rejoin.
 - Roguelite upgrade cards between levels.
-- Bombs you aim yourself, and giants you launch when you choose.
+- Bombs you aim yourself (with a vim-style keyboard aimer), and giants you
+  launch when you choose.
+- Drifting "+1 shot" power-ups you have to hit to claim.
 - Sliding gates, `/2` gates, shared gates and saw blades.
 - Boss levels, the versus Frenzy, emotes and a hall of fame.
 
@@ -60,7 +87,9 @@ their own base at the bottom (Red's view is turned 180 degrees).
 
 `World` and `Match` are deterministic, so balance can be measured headless: the
 built-in bot (`src/core/bot.cpp`) plays the campaign and versus at a chosen
-skill. At the numbers in the code, a skilled bot alone clears about 7-13
-campaign levels; an idle player loses level 1 in about 30 s; bot-against-bot
-versus rounds last one to four minutes. `tests/match_test.cpp` keeps the
+skill, and goes for power-ups when nothing threatens its base. At the numbers
+in the code, a skilled bot alone clears 4-14 campaign levels (about 8 on
+average over seeds 1-12); an idle player loses level 1 in about 30 s;
+bot-against-bot versus rounds last one to three minutes (about 110 s on
+average over seeds 1-8). `tests/match_test.cpp` keeps the
 broad shape (levels can be cleared, an idle player loses, versus ends).

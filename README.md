@@ -9,8 +9,13 @@ the horde, or against each other.
   with an upgrade card for every player between levels and a boss every fifth
   level. Best runs go to the hall of fame.
 - **Versus**: 1v1 or 2v2 on a mirrored arena; bots fill empty seats.
-- Extras: aimed bombs, chargeable giants, sliding, halving and shared gates,
-  saw blades, the versus Frenzy, emotes, and rejoining a match after a drop.
+- Extras: bombs aimed from the keyboard (vim-style), chargeable giants,
+  drifting "+1 shot" power-ups you have to hit, sliding, halving and shared
+  gates, saw blades, the versus Frenzy, emotes, and rejoining a match after a
+  drop.
+- Controls: `A`/`D` or arrows and `Space` to slide and fire, `G` for a giant,
+  `B` then `h` `j` `k` `l` and `B`/`Enter` for a bomb (keys only; touch on a
+  phone).
 
 ## Play it
 

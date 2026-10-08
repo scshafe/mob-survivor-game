@@ -122,6 +122,12 @@ export const sfx = {
     tone({ type: 'sawtooth', from: 70, to: 140, duration: 0.5, volume: 0.18 });
     tone({ type: 'square', from: 140, to: 280, duration: 0.4, volume: 0.06, delay: 0.05 });
   },
+  powerUp() {
+    if (!throttle('powerUp', 0.3)) return;
+    tone({ type: 'triangle', from: 660, to: 660, duration: 0.1, volume: 0.12 });
+    tone({ type: 'triangle', from: 880, to: 880, duration: 0.1, volume: 0.12, delay: 0.09 });
+    tone({ type: 'triangle', from: 1320, to: 1760, duration: 0.2, volume: 0.12, delay: 0.18 });
+  },
   saw() {
     if (!throttle('saw', 0.1)) return;
     noise({ duration: 0.06, volume: 0.06, from: 6000, to: 3000 });

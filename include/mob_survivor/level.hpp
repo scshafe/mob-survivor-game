@@ -54,12 +54,26 @@ struct AiSpec {
   int boss_hp = 0;
 };
 
+// How "+1 shot" power-ups appear: one drifts in from a side wall every so
+// often, on a line between y_min and y_max, and leaves by the other wall.
+struct PowerUpSpec {
+  double first = 0.0;     // seconds before the first one (0: none this level)
+  double interval = 0.0;  // seconds between the next ones, give or take 15%
+  int hp = 12;            // mobs it takes to break
+  double y_min = 0.0;
+  double y_max = 0.0;
+  bool mirror = false;    // versus: just as likely on the far side of the centre line
+  double speed_min = 1.4;
+  double speed_max = 2.4;
+};
+
 struct LevelSpec {
   int number = 1;
   Mode mode = Mode::Campaign;
   std::vector<Gate> gates;
   std::vector<Saw> saws;
   AiSpec ai;
+  PowerUpSpec powerups;
   std::array<int, kTeamCount> base_hp{60, 60};
   double time_limit = 0.0;  // 0: no limit
   double frenzy_at = 0.0;   // 0: no frenzy; else every gate gets stronger then

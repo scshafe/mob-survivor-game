@@ -140,6 +140,13 @@ LevelSpec make_campaign_level(int number, int players, std::uint64_t seed) {
     level.saws.push_back(saw);
   }
 
+  PowerUpSpec& powerups = level.powerups;
+  powerups.first = 7.0;
+  powerups.interval = 16.0;
+  powerups.hp = 10 + 2 * std::min(number, 10);
+  powerups.y_min = first_row + 2.5;
+  powerups.y_max = last_row - 2.5;
+
   const double hp_scale = 1.0 + 0.35 * (players - 1);
   const double size_scale = 1.0 + 0.3 * (players - 1);
   level.base_hp[team_index(Team::Blue)] = 100;
@@ -172,6 +179,13 @@ LevelSpec make_versus_level(std::uint64_t seed) {
   level.base_hp = {4000, 4000};
   level.time_limit = 240.0;
   level.frenzy_at = 150.0;
+  // Near the centre line, as likely on either side, so neither team is favoured.
+  level.powerups.first = 15.0;
+  level.powerups.interval = 22.0;
+  level.powerups.hp = 40;
+  level.powerups.y_min = kFieldLength / 2.0 + 3.0;
+  level.powerups.y_max = kFieldLength / 2.0 + 6.5;
+  level.powerups.mirror = true;
 
   const auto both = static_cast<std::uint8_t>(team_bit(Team::Blue) | team_bit(Team::Red));
   std::vector<Gate> half;

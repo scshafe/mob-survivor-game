@@ -60,11 +60,12 @@
         <details class="panel how">
           <summary>How to play</summary>
           <ul>
-            <li><b>Drag</b> (or move the mouse) to slide your cannon; <b>hold</b> to fire. Keys: <kbd>A</kbd>/<kbd>D</kbd> or arrows, <kbd>Space</kbd>.</li>
+            <li>Slide your cannon with <kbd>A</kbd>/<kbd>D</kbd> or the arrows; hold <kbd>Space</kbd> to fire. (On a phone: drag, and hold to fire.)</li>
             <li>Gates change every mob that runs through: <b class="c-mul">×N</b> multiplies, <b class="c-add">+N</b> adds, <b class="c-half">÷2</b> culls half. Purple-edged gates (⚔) help <i>both</i> sides.</li>
             <li>Mobs that touch enemies trade blows one for one. Reach the far wall to damage the base.</li>
-            <li>Firing charges a <b>Giant</b>: launch it with the crown button (<kbd>G</kbd>). It tramples whole squads.</li>
-            <li><b>Bomb</b>: tap the bomb button, then tap the field (or right-click, or <kbd>B</kbd> at the cursor).</li>
+            <li>Firing charges a <b>Giant</b>: launch it with <kbd>G</kbd> (or <kbd>E</kbd>, or the crown button). It tramples whole squads.</li>
+            <li><b>Bomb</b>: <kbd>B</kbd> (or <kbd>Q</kbd>) shows the aimer on the nearest enemies; move it vim-style with <kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd> (a count repeats: <kbd>5k</kbd>), <kbd>n</kbd>/<kbd>N</kbd> for the next enemy group farther/nearer, <kbd>0</kbd>/<kbd>$</kbd> for the walls, <kbd>H</kbd>/<kbd>M</kbd>/<kbd>L</kbd> for top/middle/bottom; <kbd>B</kbd> or <kbd>Enter</kbd> throws, <kbd>Esc</kbd> cancels. (On a phone: tap the bomb button, then the field.)</li>
+            <li>Gold <b>+1</b> orbs drift across the lane: break one with your mobs to fire one more mob every volley for the rest of the level (up to three).</li>
             <li>Watch out for saw blades, bosses every fifth level, and the Frenzy at 2:30 in versus.</li>
             <li>Between campaign levels, each player picks one of three upgrade cards.</li>
           </ul>
@@ -104,15 +105,20 @@
       <div id="emote-menu" class="emote-menu" hidden></div>
       <div class="hud-bottom">
         <div class="army" id="hud-army"><b id="army-count">0</b><small>your mob</small></div>
-        <button class="ability giant" id="btn-giant" title="Launch a giant (G)">
+        <button class="ability giant" id="btn-giant" title="Launch a giant (G or E)">
           <svg viewBox="0 0 44 44" class="ring"><circle cx="22" cy="22" r="19" /></svg>
-          <span>👑</span><small>Giant</small>
+          <span>👑</span><small>Giant</small><kbd class="key">G</kbd>
         </button>
-        <button class="ability bomb" id="btn-bomb" title="Throw a bomb (B, or right-click)">
+        <button class="ability bomb" id="btn-bomb" title="Bomb: B (or Q) to aim with h/j/k/l, B or Enter to throw">
           <svg viewBox="0 0 44 44" class="ring"><circle cx="22" cy="22" r="19" /></svg>
-          <span>💣</span><small>Bomb</small>
+          <span>💣</span><small>Bomb</small><kbd class="key">B</kbd>
         </button>
         <div class="army enemy" id="hud-enemy"><b id="enemy-count">0</b><small>enemies</small></div>
+      </div>
+      <div id="aim-hint" class="aim-hint" hidden>
+        <kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd> move · <kbd>5k</kbd> repeat · <kbd>n</kbd>/<kbd>N</kbd> next target ·
+        <kbd>0</kbd>/<kbd>$</kbd> walls · <kbd>H</kbd>/<kbd>M</kbd>/<kbd>L</kbd> top/mid/bottom · <kbd>B</kbd>/<kbd>Enter</kbd> throw ·
+        <kbd>Esc</kbd> cancel
       </div>
       <div id="banner" class="banner" hidden></div>
       <div id="countdown" class="countdown" hidden></div>

@@ -590,6 +590,39 @@ input:focus {
   outline: 4px solid #fb923c;
   outline-offset: 3px;
 }
+.ability .key {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  background: #0f172a;
+}
+.aim-hint {
+  position: absolute;
+  left: 50%;
+  top: calc(max(8px, env(safe-area-inset-top)) + 54px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(640px, calc(100% - 32px));
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+  pointer-events: none;
+}
+.aim-hint kbd {
+  color: #fed7aa;
+}
+/* Touch screens have no keys to show. */
+@media (hover: none) {
+  .ability .key,
+  .aim-hint {
+    display: none;
+  }
+}
 .ability:disabled {
   opacity: 0.6;
 }

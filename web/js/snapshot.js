@@ -12,6 +12,7 @@ export const EventType = Object.freeze({
   SawCut: 5,
   Frenzy: 6,
   BossSpawn: 7,
+  PowerUp: 8,
 });
 
 const SNAPSHOT_KIND = 1;
@@ -67,6 +68,7 @@ export function decodeSnapshot(buffer) {
     const charge = u8() / 255;
     const bombCooldown = u8() / 10;
     const flags = u8();
+    const volley = u8();
     snap.cannons.push({
       slot,
       team,
@@ -76,6 +78,7 @@ export function decodeSnapshot(buffer) {
       connected: (flags & 1) !== 0,
       firing: (flags & 2) !== 0,
       giantReady: (flags & 4) !== 0,
+      volley,
     });
   }
 
@@ -95,6 +98,11 @@ export function decodeSnapshot(buffer) {
       radius: coord(),
       fuse: u8() / 100,
     });
+  }
+
+  snap.powerups = [];
+  for (let n = u8(), i = 0; i < n; i++) {
+    snap.powerups.push({ id: u32(), x: coord(), y: coord(), hp: u16(), max: u16() });
   }
 
   snap.events = [];

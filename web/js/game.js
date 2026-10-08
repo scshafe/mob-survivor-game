@@ -9,6 +9,8 @@ const TICK = 1 / 30;
 const INTERP_DELAY = 0.11;
 const CANNON_SPEED = 20;
 const KEY_SPEED = 16;
+const AIM_STEP = 1; // world units per h/j/k/l
+const BOMB_RADIUS = 2.6;
 const RING = 119.4; // circumference of the ability rings (r = 19)
 
 const $ = (id) => document.getElementById(id);
@@ -52,11 +54,13 @@ export class GameView {
     this.offset = null;
     this.localX = null;
     this.targetX = 12;
-    this.pointerFiring = false;
+    this.touchFiring = false;
     this.keyFiring = false;
     this.keys = new Set();
     this.bombArmed = false;
-    this.bombArmedAt = 0;
+    this.bombAim = null;
+    this.count = '';
+    this.view = null;
     this.lastSent = { x: -1, f: false, at: 0 };
     this.baseFlash = [0, 0];
     this.shake = 0;
@@ -97,9 +101,10 @@ export class GameView {
   setActive(active) {
     this.active = active;
     if (!active) {
-      this.pointerFiring = false;
+      this.touchFiring = false;
       this.keyFiring = false;
       this.keys.clear();
+      this.count = '';
       this.setBombArmed(false);
     }
   }
@@ -148,6 +153,7 @@ export class GameView {
     }
     this.next = this.snaps[0] ?? null;
     const view = this.interpolate(renderTime);
+    this.view = view;
 
     this.updateInput(dt, view);
     this.effects.update(dt);
@@ -165,8 +171,8 @@ export class GameView {
       effects: this.effects,
       shake,
       baseFlash: this.baseFlash,
-      bombArmed: this.bombArmed,
-      pointer: this.pointer,
+      bombAim: this.bombArmed ? this.bombAim : null,
+      aimCount: this.count,
       colorOf: (slot, team) => this.colorOf(slot, team),
       nameOf: (slot) => this.nameOf(slot),
     });
@@ -187,6 +193,10 @@ export class GameView {
       bombs: a.bombs.map((bomb) => ({ ...bomb, fuse: Math.max(0, bomb.fuse - Math.max(0, renderTime - a.time)) })),
       gateX: a.gateX.map((x, i) => (b && b.gateX[i] !== undefined ? x + (b.gateX[i] - x) * alpha : x)),
       sawX: a.sawX.map((x, i) => (b && b.sawX[i] !== undefined ? x + (b.sawX[i] - x) * alpha : x)),
+      powerups: a.powerups.map((powerup) => {
+        const later = b?.powerups.find((p) => p.id === powerup.id);
+        return later ? { ...powerup, x: powerup.x + (later.x - powerup.x) * alpha } : powerup;
+      }),
       cannons: a.cannons.map((cannon) => {
         const later = b?.cannons.find((c) => c.slot === cannon.slot);
         return later ? { ...cannon, x: cannon.x + (later.x - cannon.x) * alpha } : cannon;
@@ -312,6 +322,18 @@ export class GameView {
         this.showBanner('FRENZY!', 'Every gate is stronger', '#e9d5ff');
         sfx.frenzy();
         break;
+      case EventType.PowerUp: {
+        this.effects.ring(event.x, event.y, 2.4, '#fde047', 0.6);
+        this.effects.sparks(event.x, event.y, '#fde047', 26);
+        this.effects.text(event.x, event.y, '+1 shot', '#fef08a', 1.3, 1.2);
+        if (event.index === this.mySlot) {
+          this.showBanner('+1 SHOT', `${event.value} mobs every volley`, '#fef08a', 1400);
+          sfx.powerUp();
+        } else {
+          sfx.gate(4);
+        }
+        break;
+      }
       case EventType.BossSpawn:
         this.showBanner('BOSS!', `${event.value} hp`, '#fca5a5');
         this.shake = Math.max(this.shake, 14);
@@ -486,45 +508,43 @@ export class GameView {
       const rect = canvas.getBoundingClientRect();
       return this.renderer.toWorld(event.clientX - rect.left, event.clientY - rect.top);
     };
-    const localPoint = (event) => {
-      const rect = canvas.getBoundingClientRect();
-      return { x: event.clientX - rect.left, y: event.clientY - rect.top };
-    };
 
+    // Touch only: the mouse neither moves the cannon, fires nor aims (keys do).
     canvas.addEventListener('pointerdown', (event) => {
       unlockAudio();
-      if (!this.canControl()) return;
+      if (event.pointerType === 'mouse' || !this.canControl()) return;
       event.preventDefault();
-      this.pointer = localPoint(event);
       const world = toWorld(event);
-      if (this.bombArmed || event.button === 2) {
-        this.throwBomb(world);
+      if (this.bombArmed) {
+        this.bombAim = this.clampAim(world);
+        this.throwBomb();
         return;
       }
-      if (event.button !== 0) return;
       canvas.setPointerCapture?.(event.pointerId);
-      this.pointerFiring = true;
+      this.touchFiring = true;
       this.targetX = world.x;
     });
     canvas.addEventListener('pointermove', (event) => {
-      this.pointer = localPoint(event);
-      if (!this.canControl()) return;
-      if (this.pointerFiring || event.pointerType === 'mouse') this.targetX = toWorld(event).x;
+      if (event.pointerType === 'mouse' || !this.touchFiring || !this.canControl()) return;
+      this.targetX = toWorld(event).x;
     });
     const release = () => {
-      this.pointerFiring = false;
+      this.touchFiring = false;
     };
     canvas.addEventListener('pointerup', release);
     canvas.addEventListener('pointercancel', release);
-    canvas.addEventListener('pointerleave', (event) => {
-      if (event.pointerType === 'mouse') this.pointer = null;
-    });
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 
     window.addEventListener('keydown', (event) => {
       if (!this.active || event.target instanceof HTMLInputElement) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
       const key = event.key.toLowerCase();
       if (['arrowleft', 'arrowright', 'a', 'd', ' '].includes(key)) event.preventDefault();
+      // Aimer motions repeat while held, like the cursor in vim.
+      if (this.aimKey(event.key)) {
+        event.preventDefault();
+        return;
+      }
       if (event.repeat) return;
       unlockAudio();
       if (key === ' ') this.keyFiring = true;
@@ -532,12 +552,15 @@ export class GameView {
       else if (key === 'arrowright' || key === 'd') this.keys.add('right');
       else if (key === 'g' || key === 'e') this.launchGiant();
       else if (key === 'b' || key === 'q') {
-        if (!this.canControl()) return;
-        const target = this.pointer
-          ? this.renderer.toWorld(this.pointer.x, this.pointer.y)
-          : { x: this.localX ?? 12, y: this.myTeam === 0 ? 18 : this.level.field.h - 18 };
-        this.throwBomb(target);
-      } else if (key === 'escape') this.setBombArmed(false);
+        if (this.bombArmed) this.throwBomb();
+        else this.armBomb();
+      } else if (key === 'enter' && this.bombArmed) {
+        event.preventDefault();
+        this.throwBomb();
+      } else if (key === 'escape') {
+        this.count = '';
+        this.setBombArmed(false);
+      }
     });
     window.addEventListener('keyup', (event) => {
       const key = event.key.toLowerCase();
@@ -548,7 +571,7 @@ export class GameView {
     window.addEventListener('blur', () => {
       this.keys.clear();
       this.keyFiring = false;
-      this.pointerFiring = false;
+      this.touchFiring = false;
     });
 
     const tap = (element, handler) => {
@@ -561,7 +584,8 @@ export class GameView {
     };
     tap(this.hud?.giant ?? $('btn-giant'), () => this.launchGiant());
     tap(this.hud?.bomb ?? $('btn-bomb'), () => {
-      if (this.canControl()) this.setBombArmed(!this.bombArmed);
+      if (this.bombArmed) this.setBombArmed(false);
+      else this.armBomb();
     });
   }
 
@@ -573,15 +597,114 @@ export class GameView {
 
   setBombArmed(armed) {
     this.bombArmed = armed;
-    this.bombArmedAt = performance.now();
+    if (!armed) this.count = '';
     this.hud?.bomb.classList.toggle('armed', armed);
+    $('aim-hint').hidden = !armed;
   }
 
-  throwBomb(world) {
+  // Shows the bomb aimer, on the nearest enemy group if there is one.
+  armBomb() {
+    if (!this.canControl() || this.bombArmed || !this.level) return;
+    const W = this.level.field.w;
+    const H = this.level.field.h;
+    this.bombAim = this.bombTargets()[0] ?? { x: this.localX ?? W / 2, y: this.myTeam === 0 ? H * 0.45 : H * 0.55 };
+    this.setBombArmed(true);
+  }
+
+  clampAim(point) {
+    const { w, h } = this.level.field;
+    return { x: Math.min(w, Math.max(0, point.x)), y: Math.min(h, Math.max(0, point.y)) };
+  }
+
+  // Enemy groups to jump the aimer between: nearest to our base first, one
+  // per bomb-sized cluster.
+  bombTargets() {
+    const m = this.view?.mobs;
+    if (!m) return [];
+    const home = this.myTeam === 0 ? 0 : this.level.field.h;
+    const enemies = [];
+    for (let i = 0; i < m.count; i++) {
+      if (m.teams[i] !== this.myTeam) enemies.push({ x: m.xs[i], y: m.ys[i], d: Math.abs(m.ys[i] - home) });
+    }
+    enemies.sort((a, b) => a.d - b.d);
+    const groups = [];
+    for (const enemy of enemies) {
+      if (!groups.some((g) => (g.x - enemy.x) ** 2 + (g.y - enemy.y) ** 2 < BOMB_RADIUS * BOMB_RADIUS)) groups.push(enemy);
+    }
+    return groups;
+  }
+
+  // Vim-style aimer commands, in screen directions: h j k l step (a count
+  // first repeats: 5k), 0 and $ jump to the left and right walls, H M L to
+  // the top, middle and bottom of the field, n and N to the next enemy group
+  // farther from or nearer to our base. Any of them shows the aimer.
+  aimKey(key) {
+    if (!this.canControl() || !this.level) return false;
+    if (/^[1-9]$/.test(key) || (key === '0' && this.count)) {
+      this.count = (this.count + key).slice(-2);
+      this.armBomb();
+      return true;
+    }
+    if (!['h', 'j', 'k', 'l', '0', '$', 'H', 'M', 'L', 'n', 'N'].includes(key)) return false;
+    const times = Math.max(1, parseInt(this.count || '1', 10));
+    this.count = '';
+    this.armBomb();
+    const { w: W, h: H, baseDepth } = this.level.field;
+    const flip = this.renderer.flipped ? -1 : 1;
+    const home = this.myTeam === 0 ? 0 : H;
+    let { x, y } = this.bombAim;
+    switch (key) {
+      case 'h':
+        x -= times * AIM_STEP * flip;
+        break;
+      case 'l':
+        x += times * AIM_STEP * flip;
+        break;
+      case 'k':
+        y += times * AIM_STEP * flip;
+        break;
+      case 'j':
+        y -= times * AIM_STEP * flip;
+        break;
+      case '0':
+        x = flip > 0 ? 0 : W;
+        break;
+      case '$':
+        x = flip > 0 ? W : 0;
+        break;
+      case 'H':
+        y = flip > 0 ? H - baseDepth : baseDepth;
+        break;
+      case 'M':
+        y = H / 2;
+        break;
+      case 'L':
+        y = flip > 0 ? baseDepth : H - baseDepth;
+        break;
+      default: {
+        const groups = this.bombTargets();
+        if (!groups.length) break;
+        for (let i = 0; i < times; i++) {
+          const d = Math.abs(y - home);
+          const next =
+            key === 'n'
+              ? (groups.find((g) => g.d > d + 0.3) ?? groups[0])
+              : (groups.findLast((g) => g.d < d - 0.3) ?? groups[groups.length - 1]);
+          x = next.x;
+          y = next.y;
+        }
+      }
+    }
+    this.bombAim = this.clampAim({ x, y });
+    return true;
+  }
+
+  // Throws at the aimer. Off cooldown only; until then the aimer stays up.
+  throwBomb() {
     const cannon = this.prev?.cannons.find((c) => c.slot === this.mySlot);
+    if (!this.canControl() || !this.bombArmed || !this.bombAim || !cannon || cannon.bombCooldown > 0) return;
     this.setBombArmed(false);
-    if (!cannon || cannon.bombCooldown > 0) return;
-    this.send({ t: 'bomb', x: +world.x.toFixed(2), y: +world.y.toFixed(2) });
+    this.send({ t: 'bomb', x: +this.bombAim.x.toFixed(2), y: +this.bombAim.y.toFixed(2) });
     sfx.throwBomb();
   }
 
@@ -592,7 +715,6 @@ export class GameView {
     if (this.keys.has('left')) this.targetX -= KEY_SPEED * dt * flip;
     if (this.keys.has('right')) this.targetX += KEY_SPEED * dt * flip;
     this.targetX = Math.min(W - 0.6, Math.max(0.6, this.targetX));
-    if (this.bombArmed && performance.now() - this.bombArmedAt > 5000) this.setBombArmed(false);
 
     // Predict our own cannon so it answers the finger at once.
     const server = this.prev.cannons.find((c) => c.slot === this.mySlot);
@@ -602,7 +724,7 @@ export class GameView {
       this.localX += Math.max(-step, Math.min(step, this.targetX - this.localX));
     }
 
-    const firing = this.pointerFiring || this.keyFiring;
+    const firing = this.touchFiring || this.keyFiring;
     const now = performance.now() / 1000;
     const moved = Math.abs(this.targetX - this.lastSent.x) > 0.05;
     const changed = firing !== this.lastSent.f;
