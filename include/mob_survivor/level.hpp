@@ -12,7 +12,13 @@ enum class GateOp : std::uint8_t {
   Add = 0,   // "+N": N more mobs for every mob that walks through
   Mul = 1,   // "xN": every mob that walks through becomes N
   Half = 2,  // "/2": half of the mobs that walk through are lost
+  // Gates that change what mobs are rather than how many:
+  Fuse = 3,    // every N hit points of grunts that walk in merge into one giant
+  Runner = 4,  // grunts that walk through become fast runners
+  Armor = 5,   // every mob that walks through survives its next hit
 };
+// The hit points a fused giant gets for the N it took in.
+[[nodiscard]] constexpr int fused_giant_hp(int consumed) { return consumed + consumed / 5; }
 
 // A gate spans [x - width/2, x + width/2] on the line y. A mob of a team in
 // `teams` that crosses the line within that span is changed once per gate.

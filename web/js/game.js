@@ -195,6 +195,7 @@ export class GameView {
       bases: a.bases,
       effects: a.effects,
       bombs: a.bombs.map((bomb) => ({ ...bomb, fuse: Math.max(0, bomb.fuse - Math.max(0, renderTime - a.time)) })),
+      fuseFill: a.fuseFill,
       gateX: a.gateX.map((x, i) => (b && b.gateX[i] !== undefined ? x + (b.gateX[i] - x) * alpha : x)),
       sawX: a.sawX.map((x, i) => (b && b.sawX[i] !== undefined ? x + (b.sawX[i] - x) * alpha : x)),
       powerups: a.powerups.map((powerup) => {
@@ -227,7 +228,7 @@ export class GameView {
       xs.set(m.xs);
       ys.set(m.ys);
     }
-    view.mobs = { count: m.count, ids: m.ids, xs, ys, teams: m.teams, kinds: m.kinds, hps: m.hps, phased: m.phased };
+    view.mobs = { count: m.count, ids: m.ids, xs, ys, teams: m.teams, kinds: m.kinds, hps: m.hps, phased: m.phased, armored: m.armored };
     return view;
   }
 

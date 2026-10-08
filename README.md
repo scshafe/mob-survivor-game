@@ -11,7 +11,7 @@ the horde, or against each other.
 - **Versus**: 1v1 or 2v2 on a mirrored arena; bots fill empty seats.
 - Extras: bombs aimed from the keyboard (vim-style), chargeable giants,
   drifting power-ups you have to hit (+1 shot, freeze, flip, shield,
-  magnet), sliding, halving and shared
+  magnet), fuse, runner and armor gates, sliding, halving and shared
   gates, saw blades, the versus Frenzy, emotes, and rejoining a match after a
   drop.
 - Controls: `A`/`D` or arrows and `Space` to slide and fire, `G` for a giant,

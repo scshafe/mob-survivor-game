@@ -84,6 +84,12 @@ std::string_view gate_op_name(GateOp op) {
       return "mul";
     case GateOp::Half:
       return "half";
+    case GateOp::Fuse:
+      return "fuse";
+    case GateOp::Runner:
+      return "runner";
+    case GateOp::Armor:
+      return "armor";
   }
   return "add";
 }
@@ -131,7 +137,11 @@ std::string encode_snapshot(const Match& match, const std::vector<Event>& events
 
   const auto& gates = world.level().gates;
   out.u8(static_cast<unsigned>(gates.size()));
-  for (std::size_t g = 0; g < gates.size(); ++g) out.coord(world.gate_x(g));
+  for (std::size_t g = 0; g < gates.size(); ++g) {
+    out.coord(world.gate_x(g));
+    out.u8(static_cast<unsigned>(std::clamp(world.fuse_fill(g, Team::Blue), 0, 255)));
+    out.u8(static_cast<unsigned>(std::clamp(world.fuse_fill(g, Team::Red), 0, 255)));
+  }
 
   const auto& saws = world.level().saws;
   out.u8(static_cast<unsigned>(std::min<std::size_t>(saws.size(), 255)));
@@ -183,7 +193,7 @@ std::string encode_snapshot(const Match& match, const std::vector<Event>& events
     out.coord(mob.position.x);
     out.coord(mob.position.y);
     out.u8(static_cast<unsigned>(team_index(mob.team)) | (static_cast<unsigned>(mob.kind) << 1U) |
-           (world.phased(mob) ? 16U : 0U));
+           (world.phased(mob) ? 16U : 0U) | (mob.armored ? 32U : 0U));
     out.u16(static_cast<unsigned>(std::clamp(mob.hp, 0, 65535)));
   }
   return out.take();

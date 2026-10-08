@@ -101,6 +101,7 @@ World::World(WorldConfig config) : level_(std::move(config.level)), rng_(config.
     }
   }
   gate_gain_.assign(level_.gates.size() * kTeamCount, 0);
+  fuse_fill_.assign(level_.gates.size() * kTeamCount, 0);
   wave_timer_ = level_.ai.first_wave;
   boss_timer_ = level_.ai.first_boss;
   powerup_timer_ = level_.powerups.first;
@@ -160,6 +161,10 @@ void World::set_connected(int slot, bool connected) {
 }
 
 double World::gate_x(std::size_t index) const { return gate_x_at(level_.gates.at(index), elapsed_); }
+
+int World::fuse_fill(std::size_t index, Team team) const {
+  return fuse_fill_.at(index * kTeamCount + static_cast<std::size_t>(team_index(team)));
+}
 
 double World::saw_x(std::size_t index) const { return saw_x_at(level_.saws.at(index), elapsed_); }
 
@@ -374,6 +379,10 @@ void World::step_bombs(double dt) {
       const double dx = mob.position.x - bomb.target.x;
       const double dy = mob.position.y - bomb.target.y;
       if (dx * dx + dy * dy > reach * reach) continue;
+      if (mob.armored) {
+        mob.armored = false;
+        continue;
+      }
       const int damage = std::min(mob.hp, bomb.damage);
       mob.hp -= damage;
       destroyed += damage;
@@ -494,6 +503,33 @@ void World::apply_gate(std::size_t gate_index, Mob& mob, std::vector<Mob>& born)
       extra = (factor - 1) * (big ? 3 : mob.hp);
       break;
     }
+    case GateOp::Fuse: {
+      if (big) return;
+      int& fill = fuse_fill_[gate_index * kTeamCount + static_cast<std::size_t>(team_index(mob.team))];
+      fill += mob.hp;
+      mob.hp = 0;  // taken in
+      const int need = std::max(gate.value, 1);
+      const double dir = team_direction(mob.team);
+      while (fill >= need) {
+        fill -= need;
+        Mob giant;
+        giant.team = mob.team;
+        giant.kind = MobKind::Giant;
+        giant.owner = mob.owner;
+        giant.gates_passed = mob.gates_passed;
+        giant.hp = static_cast<int>(std::lround(fused_giant_hp(need) * stats.giant_hp_scale));
+        giant.position = {std::clamp(gate_x(gate_index), 1.0, kFieldWidth - 1.0), gate.y + dir * 1.0};
+        born.push_back(giant);
+        emit({EventType::GiantLaunch, giant.team, giant.position, giant.hp, giant.owner});
+      }
+      return;
+    }
+    case GateOp::Runner:
+      if (mob.kind == MobKind::Grunt) mob.kind = MobKind::Runner;
+      return;
+    case GateOp::Armor:
+      mob.armored = true;
+      return;
     case GateOp::Half: {
       if (stats.halve_immune || (owner != nullptr && owner->phase_time > 0.0)) return;
       int lost = mob.hp / 2;
@@ -584,7 +620,11 @@ void World::step_mobs(double dt) {
       const double dy = mob.position.y - saw.y;
       const double reach = saw.radius + radius;
       if (immune || mob.saw_cooldown > 0.0 || dx * dx + dy * dy > reach * reach) continue;
-      mob.hp -= 1;
+      if (mob.armored) {
+        mob.armored = false;
+      } else {
+        mob.hp -= 1;
+      }
       mob.saw_cooldown = kSawCooldown;
       // Thrown clear, so one blade does not grind through a whole squad.
       mob.drift += dx >= 0.0 ? 6.0 : -6.0;
@@ -648,11 +688,16 @@ void World::resolve_contacts(double dt) {
     const double distance_sq = dx * dx + dy * dy;
     if (distance_sq >= reach * reach) return;
     if (first.team != second.team) {
+      // One for one; armor turns the next hit away once.
       const int trade = std::min(first.hp, second.hp);
-      first.hp -= trade;
-      second.hp -= trade;
-      tally_for(first.owner).kills += trade;
-      tally_for(second.owner).kills += trade;
+      const int to_first = first.armored ? 0 : trade;
+      const int to_second = second.armored ? 0 : trade;
+      first.armored = false;
+      second.armored = false;
+      first.hp -= to_first;
+      second.hp -= to_second;
+      tally_for(first.owner).kills += to_second;
+      tally_for(second.owner).kills += to_first;
       return;
     }
     // Same team: shoulder each other sideways so the crowd spreads out.
