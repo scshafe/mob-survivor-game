@@ -603,6 +603,12 @@ input:focus {
   outline: 4px solid #fb923c;
   outline-offset: 3px;
 }
+.big-btn.daily {
+  grid-column: 1 / -1;
+}
+.board-list .watch {
+  margin-left: auto;
+}
 .ability .key {
   position: absolute;
   top: -4px;

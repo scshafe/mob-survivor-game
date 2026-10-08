@@ -39,6 +39,9 @@
           <button class="big-btn duel" id="btn-duel">
             <span class="icon">🤖</span><span><b>Quick duel</b><small>Versus against a bot, now</small></span>
           </button>
+          <button class="big-btn daily" id="btn-daily">
+            <span class="icon">📅</span><span><b>Daily challenge</b><small id="daily-sub">Everyone gets today's levels; your first run counts</small></span>
+          </button>
         </div>
 
         <form id="join-form" class="join-row">
@@ -50,6 +53,10 @@
           <section class="panel">
             <h2>Open rooms</h2>
             <ul id="room-list" class="room-list"><li class="muted">No open rooms yet.</li></ul>
+          </section>
+          <section class="panel">
+            <h2>Today's challenge <small class="muted" id="daily-day"></small></h2>
+            <ol id="daily-list" class="board-list"><li class="muted">Nobody has played today's challenge yet.</li></ol>
           </section>
           <section class="panel">
             <h2>Hall of fame</h2>
@@ -71,6 +78,7 @@
             <li>From level 3 a level may have a named layout: <b>Hourglass</b> walls pinch the middle, <b>Twin Lanes</b> split it in two, <b>Conveyor</b> belts carry mobs sideways, <b>Teleporters</b> swap them across.</li>
             <li>Watch out for saw blades, bosses every fifth level, and the Frenzy at 2:30 in versus.</li>
             <li>Between campaign levels, each player picks one of three upgrade cards.</li>
+            <li><b>Daily challenge</b>: everyone plays the same levels each day (UTC). Your first finished run that day goes on the board; later ones are practice, racing a 👻 ghost of the day's best. Press ▶ on the board to watch a run's replay.</li>
           </ul>
         </details>
         <footer class="foot"><span id="conn-state" class="muted">Connecting…</span><button class="link" id="btn-mute-home">🔊 Sound on</button></footer>

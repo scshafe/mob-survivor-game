@@ -113,3 +113,26 @@ in rows on top of any layout.
 """
 refs = ["include/mob_survivor/level.hpp", "docs/design.md"]
 aliases = ["map", "arena", "hourglass", "twin lanes", "conveyor", "teleporter"]
+
+[[term]]
+slug = "daily-challenge"
+title = "Daily challenge"
+definition = """
+A solo campaign seeded from the UTC date, so everyone plays the same levels that
+day. A name's first finished run goes on the day's board; later runs are practice
+against a ghost of the day's best run. Not the hall of fame, which ranks ordinary
+campaign runs of all time.
+"""
+refs = ["src/net/daily.hpp", "docs/design.md"]
+aliases = ["daily", "daily board", "ghost"]
+
+[[term]]
+slug = "replay"
+title = "Replay"
+definition = """
+A recorded match: its mode, seed, seats and every player input with the match
+tick it arrived at. Because a match is deterministic, playing the inputs back
+gives the same match. Not a video: it is re-simulated, on the server, to watch it.
+"""
+refs = ["include/mob_survivor/replay.hpp", "src/net/replay_file.hpp", "docs/design.md"]
+aliases = ["recording", "input log"]

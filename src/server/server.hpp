@@ -72,6 +72,7 @@ class Server final : public net::Sink {
   std::map<net::ClientId, int> fd_of_client_;
   net::ClientId next_client_ = 1;
   std::unique_ptr<net::Leaderboard> board_;
+  std::unique_ptr<net::DailyBoard> daily_;
   std::unique_ptr<net::Lobby> lobby_;
 };
 

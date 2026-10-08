@@ -8,7 +8,9 @@
 #include <vector>
 
 #include "mob_survivor/match.hpp"
+#include "mob_survivor/replay.hpp"
 #include "mob_survivor/rng.hpp"
+#include "net/daily.hpp"
 #include "net/json.hpp"
 #include "net/leaderboard.hpp"
 
@@ -31,13 +33,14 @@ inline constexpr std::size_t kMaxRoomMembers = 12;
 inline constexpr std::size_t kMaxRooms = 200;
 inline constexpr double kReconnectGraceSeconds = 60.0;
 inline constexpr int kSnapshotEveryTicks = 2;  // 15 snapshots a second at 30 ticks
+inline constexpr int kGhostEveryTicks = 15;    // the daily ghost's progress, twice a second
 
 // Every room, every connected client and the messages between them. It knows
 // nothing about sockets: the server feeds it connects, messages and ticks.
 // Single-threaded by design: the server calls it from its one event loop.
 class Lobby {
  public:
-  Lobby(Sink& sink, Leaderboard& board, std::uint64_t seed, double clock_seconds = 0.0);
+  Lobby(Sink& sink, Leaderboard& board, DailyBoard& daily, std::uint64_t seed, double clock_seconds = 0.0);
 
   void connect(ClientId client, std::string_view suggested_name);
   void disconnect(ClientId client);
@@ -65,6 +68,11 @@ class Lobby {
   };
 
   struct Room {
+    // Open: an ordinary room. Daily: one player's run at the day's challenge.
+    // Replay: a recorded run played back to whoever watches.
+    enum class Kind : std::uint8_t { Open, Daily, Replay };
+    Kind kind = Kind::Open;
+    std::string day;  // daily: the challenge's day
     std::string code;
     Mode mode = Mode::Campaign;
     bool is_public = true;
@@ -76,6 +84,12 @@ class Lobby {
     std::vector<bool> sent_picks;
     int tick = 0;
     double empty_for = 0.0;
+    InputLog log;                         // the match's inputs, for its replay
+    std::unique_ptr<ReplayPlayer> ghost;  // daily: the day's best run, played alongside
+    std::string ghost_name;
+    std::optional<Replay> playback;       // replay rooms: the run being shown
+    std::size_t playback_next = 0;
+    std::string playback_name;
   };
 
   struct Client {
@@ -88,6 +102,10 @@ class Lobby {
   void handle(ClientId id, Client& client, const JsonValue& message);
   void hello(ClientId id, Client& client, const JsonValue& message);
   void create_room(ClientId id, Client& client, const JsonValue& message);
+  void start_daily(ClientId id, Client& client);
+  void watch_replay(ClientId id, Client& client, std::string_view replay_id);
+  void send_ghost(const Room& room);
+  [[nodiscard]] std::string today() const { return utc_day(clock_); }
   void join_room(ClientId id, Client& client, std::string_view code);
   void leave_room(ClientId id, Client& client);
   void start_match(Room& room);
@@ -120,6 +138,7 @@ class Lobby {
 
   Sink& sink_;
   Leaderboard& board_;
+  DailyBoard& daily_;
   Rng rng_;
   double clock_;
   std::map<ClientId, Client> clients_;

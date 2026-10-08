@@ -77,6 +77,7 @@ export class GameView {
     this.lastCount = -1;
     this.lastOutcome = Outcome.None;
     this.gateTexts = new Map();
+    this.ghost = null;
     this.bombMax = 13;
     this.effects = new Effects();
   }
@@ -84,6 +85,7 @@ export class GameView {
   // ---------------------------------------------------------------- state in
 
   setRoom(room) {
+    if (room.kind !== 'daily' || this.room?.code !== room.code) this.ghost = null;
     this.room = room;
     const me = room.members.find((m) => m.id === room.you && m.id !== 0);
     this.mySlot = me && me.seated && me.slot >= 0 ? me.slot : -1;
@@ -92,6 +94,11 @@ export class GameView {
     this.hud.giant.hidden = this.mySlot < 0;
     this.hud.bomb.hidden = this.mySlot < 0;
     this.hud.phase.hidden = this.mySlot < 0;
+  }
+
+  // The daily challenge's ghost: where the day's best run was at this moment.
+  setGhost(ghost) {
+    this.ghost = ghost;
   }
 
   setLevel(level) {
@@ -185,6 +192,7 @@ export class GameView {
       shake,
       baseFlash: this.baseFlash,
       bombAim: this.bombArmed ? this.bombAim : null,
+      ghost: this.room?.kind === 'daily' && this.ghost && !this.ghost.over && this.ghost.level === this.prev?.level ? this.ghost : null,
       aimCount: this.count,
       colorOf: (slot, team) => this.colorOf(slot, team),
       nameOf: (slot) => this.nameOf(slot),
@@ -450,13 +458,21 @@ export class GameView {
     const campaign = level?.mode === 'campaign';
     const enemyTeam = this.mySlot >= 0 ? 1 - this.myTeam : 1;
     const ownTeam = 1 - enemyTeam;
-    set('title', campaign ? `Level ${this.prev.level}${level?.boss ? ' · Boss' : ''}` : 'Versus', (v) => (this.hud.level.textContent = v));
+    const prefix = this.room?.kind === 'daily' ? 'Daily · ' : this.room?.kind === 'replay' ? 'Replay · ' : '';
+    set('title', campaign ? `${prefix}Level ${this.prev.level}${level?.boss ? ' · Boss' : ''}` : `${prefix}Versus`, (v) => (this.hud.level.textContent = v));
     let sub;
     if (view.phase === Phase.Upgrade) {
       sub = `Next level in ${Math.ceil(view.timeLeft)}s`;
     } else if (!campaign && view.phase === Phase.Playing) {
       const t = Math.max(0, Math.ceil(view.timeLeft));
       sub = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}${view.frenzy ? ' · FRENZY' : ''}`;
+    } else if (this.room?.kind === 'replay') {
+      sub = `${this.room.replayOf}'s run`;
+    } else if (this.room?.kind === 'daily' && this.ghost) {
+      const g = this.ghost;
+      sub = g.over
+        ? `👻 ${g.name} cleared ${g.cleared}`
+        : `👻 ${g.name}: level ${g.level}, enemy base ${Math.round(g.enemy * 100)}%`;
     } else if (this.mySlot < 0) {
       sub = 'Spectating';
     } else {

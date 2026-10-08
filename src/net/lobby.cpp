@@ -21,8 +21,23 @@ constexpr std::array<std::string_view, 6> kBotNames{"Bot Rex", "Bot Ada", "Bot M
 
 }  // namespace
 
-Lobby::Lobby(Sink& sink, Leaderboard& board, std::uint64_t seed, double clock_seconds)
-    : sink_(sink), board_(board), rng_(seed), clock_(clock_seconds) {}
+Lobby::Lobby(Sink& sink, Leaderboard& board, DailyBoard& daily, std::uint64_t seed, double clock_seconds)
+    : sink_(sink), board_(board), daily_(daily), rng_(seed), clock_(clock_seconds) {}
+
+namespace {
+
+std::string_view kind_name(int kind) {
+  switch (kind) {
+    case 1:
+      return "daily";
+    case 2:
+      return "replay";
+    default:
+      return "room";
+  }
+}
+
+}  // namespace
 
 // ---------------------------------------------------------------- utilities
 
@@ -141,6 +156,9 @@ std::string Lobby::room_json(const Room& room, ClientId you) const {
   w.field("code", room.code);
   w.field("mode", mode_name(room.mode));
   w.field("public", room.is_public);
+  w.field("kind", kind_name(static_cast<int>(room.kind)));
+  if (room.kind == Room::Kind::Daily) w.field("day", room.day);
+  if (room.kind == Room::Kind::Replay) w.field("replayOf", room.playback_name);
   w.field("phase", phase_name(room.match ? room.match->phase() : Phase::Lobby));
   w.field("host", room.host);
   w.field("you", you);
@@ -262,7 +280,7 @@ void Lobby::disconnect(ClientId id) {
         it->client = 0;
         it->connected = false;
         it->gone_for = 0.0;
-        room->match->set_connected(it->slot, false);
+        room->log.connect(*room->match, it->slot, false);
       } else {
         room->members.erase(it);
       }
@@ -299,6 +317,9 @@ void Lobby::handle(ClientId id, Client& client, const JsonValue& message) {
   if (type == "rooms") return send(id, rooms_json());
   if (type == "board") return send(id, board_.to_json());
   if (type == "create") return create_room(id, client, message);
+  if (type == "daily") return start_daily(id, client);
+  if (type == "dailyboard") return send(id, daily_.to_json(today(), client.name));
+  if (type == "watch") return watch_replay(id, client, message.get_string("replay"));
   if (type == "join") return join_room(id, client, message.get_string("code"));
   if (type == "leave") {
     leave_room(id, client);
@@ -326,6 +347,14 @@ void Lobby::handle(ClientId id, Client& client, const JsonValue& message) {
   }
 
   if (!room->match) {
+    // A daily run has one seat; nobody plays in a replay.
+    const bool fixed = room->kind != Room::Kind::Open;
+    if (fixed && type != "spectate" && type != "start" && type != "team") return;
+    if (type == "team" && room->kind == Room::Kind::Replay) return;
+    if (type == "team" && room->kind == Room::Kind::Daily && !member->seated && seated_count(*room) >= 1) {
+      return send_error(id, "A daily run is for one player.");
+    }
+    if (type == "start" && room->kind == Room::Kind::Replay) return;
     if (type == "team") {
       // Also how a spectator takes a free seat; a campaign has only Blue.
       const Team team =
@@ -365,30 +394,36 @@ void Lobby::handle(ClientId id, Client& client, const JsonValue& message) {
 
   Match& match = *room->match;
   const int slot = member->seated ? member->slot : -1;
+  InputLog& log = room->log;
   if (type == "in") {
-    if (slot >= 0) match.set_input(slot, message.get_number("x", kFieldWidth / 2.0), message.get_bool("f"));
+    if (slot >= 0) log.aim(match, slot, message.get_number("x", kFieldWidth / 2.0), message.get_bool("f"));
     return;
   }
   if (type == "giant") {
-    if (slot >= 0) match.request_giant(slot);
+    if (slot >= 0) log.giant(match, slot);
     return;
   }
   if (type == "phase") {
-    if (slot >= 0) match.request_phase(slot);
+    if (slot >= 0) log.phase(match, slot);
     return;
   }
   if (type == "bomb") {
-    if (slot >= 0) match.request_bomb(slot, {message.get_number("x", -1.0), message.get_number("y", -1.0)});
+    if (slot >= 0) log.bomb(match, slot, {message.get_number("x", -1.0), message.get_number("y", -1.0)});
     return;
   }
   if (type == "pick") {
-    if (slot >= 0 && match.pick_card(slot, static_cast<int>(message.get_number("i", -1)))) {
+    if (slot >= 0 && log.pick(match, slot, static_cast<int>(message.get_number("i", -1)))) {
       if (auto cards = encode_cards(match, slot)) send(id, *cards);
       send_picks(*room);
     }
     return;
   }
-  if (type == "again" && is_host && match.phase() == Phase::GameOver) return back_to_lobby(*room);
+  if (type == "again" && is_host && match.phase() == Phase::GameOver && room->kind != Room::Kind::Replay) {
+    back_to_lobby(*room);
+    // A daily run goes again at once: the same seed, as practice.
+    if (room->kind == Room::Kind::Daily) start_match(*room);
+    return;
+  }
 }
 
 void Lobby::hello(ClientId id, Client& client, const JsonValue& message) {
@@ -405,7 +440,7 @@ void Lobby::hello(ClientId id, Client& client, const JsonValue& message) {
         member.name = client.name;
         client.token = std::string(token);
         client.room = code;
-        if (room.match && member.seated && member.slot >= 0) room.match->set_connected(member.slot, true);
+        if (room.match && member.seated && member.slot >= 0) room.log.connect(*room.match, member.slot, true);
         promote_host(room);
         w.begin_object().field("t", "session").field("name", client.name).field("token", client.token);
         w.field("rejoined", code).end_object();
@@ -424,6 +459,7 @@ void Lobby::hello(ClientId id, Client& client, const JsonValue& message) {
   }
   w.begin_object().field("t", "session").field("name", client.name).field("token", client.token).end_object();
   send(id, w.str());
+  send(id, daily_.to_json(today(), client.name));
 }
 
 void Lobby::create_room(ClientId id, Client& client, const JsonValue& message) {
@@ -489,7 +525,7 @@ void Lobby::leave_room(ClientId id, Client& client) {
       it->client = 0;
       it->connected = false;
       it->token.clear();
-      room->match->set_connected(it->slot, false);
+      room->log.connect(*room->match, it->slot, false);
     } else {
       room->members.erase(it);
     }
@@ -535,9 +571,21 @@ void Lobby::start_match(Room& room) {
     member.slot = slot++;
     seats.push_back({member.slot, room.mode == Mode::Campaign ? Team::Blue : member.team, member.bot});
   }
-  room.match = std::make_unique<Match>(room.mode, rng_.next(), std::move(seats));
+  const std::uint64_t seed = room.kind == Room::Kind::Daily ? daily_seed(room.day) : rng_.next();
+  room.log.clear();
+  room.ghost.reset();
+  if (room.kind == Room::Kind::Daily) {
+    // Today's best run plays alongside, as a ghost.
+    if (const DailyBoard::Run* best = daily_.best(room.day); best != nullptr && !best->replay.empty()) {
+      if (const Replay* replay = daily_.replay(best->replay)) {
+        room.ghost = std::make_unique<ReplayPlayer>(*replay);
+        room.ghost_name = best->name;
+      }
+    }
+  }
+  room.match = std::make_unique<Match>(room.mode, seed, std::move(seats));
   for (const Member& member : room.members) {
-    if (member.slot >= 0 && !member.bot && !member.connected) room.match->set_connected(member.slot, false);
+    if (member.slot >= 0 && !member.bot && !member.connected) room.log.connect(*room.match, member.slot, false);
   }
   ++matches_started_;
   room.tick = 0;
@@ -572,7 +620,27 @@ void Lobby::back_to_lobby(Room& room) {
 void Lobby::finish_match(Room& room) {
   const Match& match = *room.match;
   int rank = -1;
-  if (match.mode() == Mode::Campaign) {
+  int daily_place = -1;
+  std::string replay_id;
+  if (room.kind == Room::Kind::Daily) {
+    std::string name;
+    int kills = 0;
+    for (const Member& member : room.members) {
+      if (member.slot < 0) continue;
+      kills += match.total_tally(member.slot).kills;
+      name = member.name;
+    }
+    char suffix[12];
+    std::snprintf(suffix, sizeof suffix, "%08llx", static_cast<unsigned long long>(rng_.next() & 0xffffffffULL));
+    replay_id = room.day + "-" + suffix;
+    Replay replay;
+    replay.mode = match.mode();
+    replay.seed = daily_seed(room.day);
+    for (const MatchSeat& seat : match.seats()) replay.seats.push_back(seat.spec);
+    replay.inputs = room.log.inputs();
+    daily_place = daily_.add({room.day, name, match.levels_cleared(), kills, static_cast<std::int64_t>(clock_), replay_id},
+                             replay);
+  } else if (room.kind == Room::Kind::Open && match.mode() == Mode::Campaign) {
     std::string names;
     int kills = 0;
     for (const Member& member : room.members) {
@@ -590,6 +658,13 @@ void Lobby::finish_match(Room& room) {
   w.field("outcome", outcome_name(match.outcome()));
   w.field("levels", match.levels_cleared());
   w.field("rank", rank);
+  if (room.kind == Room::Kind::Daily) {
+    w.key("daily").begin_object();
+    w.field("day", room.day).field("scored", daily_place >= 0).field("place", daily_place);
+    w.field("replay", daily_place >= 0 ? replay_id : std::string());
+    w.end_object();
+  }
+  if (room.kind == Room::Kind::Replay) w.field("replayOf", room.playback_name);
   w.key("players").begin_array();
   for (const Member& member : room.members) {
     if (member.slot < 0) continue;
@@ -605,6 +680,96 @@ void Lobby::finish_match(Room& room) {
   w.end_object();
   broadcast(room, w.str());
   if (rank >= 0) broadcast(room, board_.to_json());
+  if (room.kind == Room::Kind::Daily) {
+    for (const Member& member : room.members) {
+      if (member.client != 0) send(member.client, daily_.to_json(room.day, member.name));
+    }
+  }
+}
+
+void Lobby::send_ghost(const Room& room) {
+  if (!room.ghost) return;
+  const Match& ghost = room.ghost->match();
+  const World& world = ghost.world();
+  const Base& enemy = world.base(Team::Red);
+  JsonWriter w;
+  w.begin_object();
+  w.field("t", "ghost");
+  w.field("name", room.ghost_name);
+  w.field("level", ghost.level());
+  w.field("cleared", ghost.levels_cleared());
+  w.field("enemy", enemy.max_hp > 0 ? static_cast<double>(enemy.hp) / enemy.max_hp : 0.0);
+  w.field("x", world.cannons().empty() ? kFieldWidth / 2.0 : world.cannons().front().x);
+  w.field("over", room.ghost->done());
+  w.end_object();
+  broadcast(room, w.str());
+}
+
+void Lobby::start_daily(ClientId id, Client& client) {
+  if (rooms_.size() >= kMaxRooms) return send_error(id, "The server is full; try again soon.");
+  leave_room(id, client);
+  daily_.prune(today());
+  Room room;
+  room.kind = Room::Kind::Daily;
+  room.day = today();
+  room.code = make_code();
+  room.mode = Mode::Campaign;
+  room.is_public = false;
+  room.host = id;
+  Member member;
+  member.client = id;
+  member.name = client.name;
+  member.token = client.token;
+  room.members.push_back(member);
+  client.room = room.code;
+  const std::string code = room.code;
+  Room& stored = rooms_.emplace(code, std::move(room)).first->second;
+  send_room(stored);
+  send(id, daily_.to_json(stored.day, client.name));
+  start_match(stored);
+}
+
+void Lobby::watch_replay(ClientId id, Client& client, std::string_view replay_id) {
+  const Replay* replay = daily_.replay(replay_id);
+  const DailyBoard::Run* run = daily_.run_with_replay(replay_id);
+  if (replay == nullptr || run == nullptr) return send_error(id, "That replay is gone.");
+  if (rooms_.size() >= kMaxRooms) return send_error(id, "The server is full; try again soon.");
+  leave_room(id, client);
+  Room room;
+  room.kind = Room::Kind::Replay;
+  room.code = make_code();
+  room.mode = replay->mode;
+  room.is_public = false;
+  room.host = id;
+  room.playback = *replay;
+  room.playback_name = run->name;
+  // The recorded players hold their seats; the watcher only watches.
+  for (const SeatSpec& seat : replay->seats) {
+    Member player;
+    player.name = seat.bot ? std::string(kBotNames.at(0)) : run->name;
+    player.bot = seat.bot;
+    player.team = seat.team;
+    player.slot = seat.slot;
+    player.seated = true;
+    player.connected = true;
+    room.members.push_back(player);
+  }
+  Member watcher;
+  watcher.client = id;
+  watcher.name = client.name;
+  watcher.token = client.token;
+  watcher.seated = false;
+  room.members.push_back(watcher);
+  client.room = room.code;
+  const std::string code = room.code;
+  Room& stored = rooms_.emplace(code, std::move(room)).first->second;
+  stored.match = std::make_unique<Match>(replay->mode, replay->seed, replay->seats);
+  ++matches_started_;
+  stored.tick = 0;
+  stored.sent_serial = stored.match->level_serial();
+  stored.sent_phase = stored.match->phase();
+  send_room(stored);
+  broadcast(stored, encode_level(*stored.match));
 }
 
 void Lobby::tick_room(Room& room, double dt) {
@@ -622,8 +787,17 @@ void Lobby::tick_room(Room& room, double dt) {
   }
   if (!room.match) return;
   Match& match = *room.match;
+  if (room.playback) {
+    const auto& inputs = room.playback->inputs;
+    while (room.playback_next < inputs.size() && inputs[room.playback_next].tick <= match.ticks()) {
+      apply_input(match, inputs[room.playback_next]);
+      ++room.playback_next;
+    }
+  }
   match.step(dt);
   ++room.tick;
+  if (room.ghost && !room.ghost->done()) room.ghost->step();
+  if (room.ghost && room.tick % kGhostEveryTicks == 0) send_ghost(room);
 
   if (match.level_serial() != room.sent_serial) {
     room.sent_serial = match.level_serial();

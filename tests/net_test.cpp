@@ -1,3 +1,5 @@
+#include <unistd.h>
+
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -5,10 +7,12 @@
 #include "check.hpp"
 #include "mob_survivor/match.hpp"
 #include "net/base64.hpp"
+#include "net/daily.hpp"
 #include "net/http.hpp"
 #include "net/json.hpp"
 #include "net/leaderboard.hpp"
 #include "net/protocol.hpp"
+#include "net/replay_file.hpp"
 #include "net/sha1.hpp"
 #include "net/websocket.hpp"
 
@@ -187,7 +191,70 @@ void the_leaderboard_ranks_and_persists() {
 
 }  // namespace
 
+void daily_days_and_seeds() {
+  CHECK(utc_day(0.0) == "1970-01-01");
+  CHECK(utc_day(1791417600.0) == "2026-10-08");
+  CHECK(utc_day(1791417600.0 - 1.0) == "2026-10-07");
+  CHECK(utc_day(951868799.0) == "2000-02-29");
+  CHECK(daily_seed("2026-10-08") == daily_seed("2026-10-08"));
+  CHECK(daily_seed("2026-10-08") != daily_seed("2026-10-09"));
+}
+
+void replay_files_round_trip() {
+  Replay replay;
+  replay.mode = Mode::Versus;
+  replay.seed = 18446744073709551557ULL;  // needs all 64 bits
+  replay.seats = {{0, Team::Blue, false}, {1, Team::Red, true}};
+  replay.inputs = {{3, ReplayInput::Kind::Aim, 0, 1250, 1}, {40, ReplayInput::Kind::Bomb, 0, -5, 3000},
+                   {41, ReplayInput::Kind::Pick, 0, 2, 0}};
+  const auto back = decode_replay(encode_replay(replay));
+  CHECK(back.has_value());
+  if (!back) return;
+  CHECK(back->mode == Mode::Versus && back->seed == replay.seed && back->seats.size() == 2 && back->seats[1].bot);
+  CHECK(back->inputs.size() == 3 && back->inputs[1].a == -5 && back->inputs[1].b == 3000);
+  CHECK(back->inputs[2].kind == ReplayInput::Kind::Pick);
+  CHECK(!decode_replay("not a replay"));
+  CHECK(!decode_replay("mob-survivor-replay 1\nmode campaign\nseed 5\nseat 0 0 0\ni 5 9 0 0 0\n"));
+  CHECK(!decode_replay("mob-survivor-replay 1\nmode campaign\nseed 5\nseat 0 0 0\ni 5 0 0 0 0\ni 4 0 0 0 0\n"));
+}
+
+void the_daily_board_keeps_a_week_on_disk() {
+  const auto dir = std::filesystem::temp_directory_path() / ("mob-survivor-daily-" + std::to_string(::getpid()));
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir);
+  Replay replay;
+  replay.seed = 7;
+  replay.seats = {{0, Team::Blue, false}};
+  replay.inputs = {{1, ReplayInput::Kind::Aim, 0, 600, 1}};
+  {
+    DailyBoard daily(dir.string());
+    CHECK(daily.add({"2026-10-01", "Old", 9, 90, 1, "2026-10-01-0000000a"}, replay) == 0);
+    CHECK(daily.add({"2026-10-08", "Ada", 3, 50, 2, "2026-10-08-0000000b"}, replay) == 0);
+    CHECK(daily.add({"2026-10-08", "Bo", 5, 10, 3, "2026-10-08-0000000c"}, replay) == 0);
+    CHECK(daily.add({"2026-10-08", "Ada", 9, 99, 4, "2026-10-08-0000000d"}, replay) == -1);  // already scored
+    CHECK(daily.add({"2026-10-08", "Cy", 1, 1, 5, "../evil"}, replay) == -1);
+    CHECK(daily.best("2026-10-08")->name == "Bo");
+    CHECK(daily.has_played("2026-10-08", "Ada") && !daily.has_played("2026-10-09", "Ada"));
+  }
+  {
+    DailyBoard daily(dir.string());
+    CHECK(daily.best("2026-10-08") != nullptr && daily.best("2026-10-08")->name == "Bo");
+    const Replay* loaded = daily.replay("2026-10-08-0000000b");
+    CHECK(loaded != nullptr && loaded->inputs.size() == 1 && loaded->inputs[0].a == 600);
+    CHECK(daily.run_with_replay("2026-10-08-0000000b")->name == "Ada");
+    daily.prune("2026-10-08");  // keeps 2026-10-02 .. 2026-10-08
+    CHECK(daily.best("2026-10-01") == nullptr && daily.replay("2026-10-01-0000000a") == nullptr);
+    CHECK(!std::filesystem::exists(dir / "replays" / "2026-10-01-0000000a.txt"));
+    const auto json = parse_json(daily.to_json("2026-10-08", "Ada"));
+    CHECK(json.has_value() && json->get_bool("played") && json->get_number("players") == 2);
+  }
+  std::filesystem::remove_all(dir);
+}
+
 int main() {
+  daily_days_and_seeds();
+  replay_files_round_trip();
+  the_daily_board_keeps_a_week_on_disk();
   sha1_matches_known_vectors();
   base64_matches_known_vectors();
   the_handshake_matches_rfc_6455();

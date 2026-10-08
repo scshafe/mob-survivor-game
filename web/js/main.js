@@ -6,7 +6,7 @@ import { GameView } from './game.js';
 import { PLAYER_COLORS } from './render.js';
 import { isMuted, setMuted, sfx, unlockAudio } from './audio.js';
 
-const PROTOCOL = 6;
+const PROTOCOL = 7;
 const DEFAULT_NAME = /^Player \d+$/;
 const EMOTES = ['👍', '😂', '😱', '🔥', '😡', '🎉'];
 const CARD_GLYPHS = {
@@ -160,6 +160,13 @@ function handle(message) {
     case 'board':
       renderBoard(message.entries);
       break;
+    case 'dailyboard':
+      state.daily = message;
+      renderDaily();
+      break;
+    case 'ghost':
+      game.setGhost(message);
+      break;
     case 'room': {
       const previous = state.room;
       state.room = message;
@@ -252,6 +259,42 @@ function renderBoard(entries) {
   }
 }
 
+function renderDaily() {
+  const daily = state.daily;
+  if (!daily) return;
+  $('daily-day').textContent = daily.day;
+  $('daily-sub').textContent = daily.played
+    ? `You scored today · ${daily.players} played · practice runs race the best`
+    : `Everyone gets today's levels; your first run counts · ${daily.players} played`;
+  const list = $('daily-list');
+  list.replaceChildren();
+  if (!daily.entries.length) {
+    list.append(el('li', { class: 'muted' }, "Nobody has played today's challenge yet."));
+    return;
+  }
+  for (const entry of daily.entries) {
+    const levels = entry.levels === 1 ? '1 level' : `${entry.levels} levels`;
+    list.append(
+      el(
+        'li',
+        {},
+        el('span', { class: 'names' }, entry.name),
+        el('span', { class: 'score' }, levels),
+        el('span', { class: 'muted' }, `${entry.kills} ☠`),
+        entry.replay
+          ? el('button', { class: 'btn small watch', title: 'Watch the replay', onclick: () => watchReplay(entry.replay) }, '▶')
+          : null,
+      ),
+    );
+  }
+}
+
+function watchReplay(replay) {
+  unlockAudio();
+  sfx.click();
+  link.send({ t: 'watch', replay });
+}
+
 function joinRoom(code) {
   unlockAudio();
   sfx.click();
@@ -270,6 +313,11 @@ $('btn-solo').addEventListener('click', () => create({ mode: 'campaign', public:
 $('btn-coop').addEventListener('click', () => create({ mode: 'campaign', public: true }));
 $('btn-versus').addEventListener('click', () => create({ mode: 'versus', public: true }));
 $('btn-duel').addEventListener('click', () => create({ mode: 'versus', public: false, bots: true, start: true }));
+$('btn-daily').addEventListener('click', () => {
+  unlockAudio();
+  sfx.click();
+  link.send({ t: 'daily' });
+});
 $('join-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const code = $('join-code').value.trim().toUpperCase();
@@ -486,7 +534,16 @@ function renderOver() {
   const myTeam = mine?.seated ? mine.team : null;
   let title;
   let sub;
-  if (over.mode === 'campaign') {
+  const levelsText = `${over.levels} level${over.levels === 1 ? '' : 's'}`;
+  if (over.replayOf) {
+    title = `Replay of ${over.replayOf}`;
+    sub = `${over.replayOf} cleared ${levelsText}.`;
+  } else if (over.daily) {
+    title = 'Daily challenge';
+    sub = over.daily.scored
+      ? `You cleared ${levelsText}: #${over.daily.place + 1} on today's board!`
+      : `Practice run: ${levelsText}. Your first run today is the one on the board.`;
+  } else if (over.mode === 'campaign') {
     title = 'Game over';
     sub = `Your crew cleared ${over.levels} level${over.levels === 1 ? '' : 's'}.`;
     if (over.rank === 0) sub += ' A new record on the Hall of Fame! 🏆';
@@ -529,8 +586,9 @@ function renderOver() {
     ),
   );
   const isHost = room.host === room.you;
-  $('btn-again').hidden = !isHost;
-  $('over-wait').textContent = isHost ? '' : 'Waiting for the host to play again…';
+  $('btn-again').hidden = !isHost || room.kind === 'replay';
+  $('btn-again').textContent = room.kind === 'daily' ? 'Practice again' : 'Play again';
+  $('over-wait').textContent = isHost || room.kind === 'replay' ? '' : 'Waiting for the host to play again…';
 }
 
 $('btn-again').addEventListener('click', () => {

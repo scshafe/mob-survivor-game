@@ -1,4 +1,4 @@
-# Wire protocol (version 6)
+# Wire protocol (version 7)
 
 One WebSocket per browser tab, at `GET /ws`. Text frames carry JSON objects,
 each with a type in `t`. Binary frames carry snapshots (server to client only).
@@ -27,6 +27,9 @@ Bump `kProtocolVersion` (`src/net/protocol.hpp`) and `PROTOCOL`
 | `rooms` | | asks for the public room list |
 | `board` | | asks for the hall of fame |
 | `create` | `mode` (`campaign`\|`versus`), `public`, `start`?, `bots`? | makes a room and enters it as host; `start` starts at once; `bots` (versus) seats a Red bot |
+| `daily` | | starts a daily challenge run: a private one-seat campaign on the day's seed (UTC), at once |
+| `dailyboard` | | asks for today's daily board |
+| `watch` | `replay` | watches a daily board run's replay: a private room where the recorded run plays back |
 | `join` | `code` | enters a room: seated if the lobby has room, else watching |
 | `leave` | | leaves the room |
 | `team` | `team` (0 Blue, 1 Red) | lobby: take a seat, or switch team (versus, at most 2 a side) |
@@ -39,7 +42,7 @@ Bump `kProtocolVersion` (`src/net/protocol.hpp`) and `PROTOCOL`
 | `phase` | | start Phase (this player's mobs ignore saws and "/2" gates for 5 s), if recharged |
 | `bomb` | `x`, `y` | throw a bomb at that world point, if off cooldown |
 | `pick` | `i` | upgrade phase: take card `i` of the offer |
-| `again` | | host, game over: back to the room lobby |
+| `again` | | host, game over: back to the room lobby (a daily room starts a practice run at once; not in replay rooms) |
 | `emote` | `e` (0-5) | show an emote to the room |
 | `ping` | `n` | answered by `pong` with the same `n` |
 
@@ -51,11 +54,13 @@ Bump `kProtocolVersion` (`src/net/protocol.hpp`) and `PROTOCOL`
 | `session` | `name`, `token`, `rejoined`? (room code when the token reclaimed a seat) |
 | `rooms` | `rooms`: `[{code, mode, phase, seated, members, maxSeats, host, level?}]` |
 | `board` | `entries`: `[{names, levels, kills, when}]`, best first |
-| `room` | `code`, `mode`, `public`, `phase` (`lobby`\|`countdown`\|`playing`\|`upgrade`\|`over`), `host`, `you`, `maxSeats`, `members`: `[{id, name, team, bot, seated, slot, connected, host}]` |
+| `room` | `code`, `mode`, `public`, `kind` (`room`\|`daily`\|`replay`), `day`? (daily), `replayOf`? (replay: whose run), `phase` (`lobby`\|`countdown`\|`playing`\|`upgrade`\|`over`), `host`, `you`, `maxSeats`, `members`: `[{id, name, team, bot, seated, slot, connected, host}]` |
 | `level` | `serial`, `level`, `mode`, `boss`, `field` `{w, h, baseDepth, cannonOffset, powerUpRadius, maxVolley}`, `timeLimit`, `frenzyAt`, `gates`: `[{x, y, w, op, v, teams, moving}]` (`op`: `mul`, `add`, `half`, `fuse` (v: hit points per giant), `runner`, `armor`), `saws`: `[{y, r}]`, `layout` (`open`\|`hourglass`\|`twin`\|`conveyor`\|`teleport`), `walls`: `[{x0, x1, y0, y1}]` (mobs cannot enter), `conveyors`: `[{y0, y1, push}]` (units a second, + toward larger x), `teleporters`: `[{ax, ay, bx, by, r}]` (pad pairs) |
 | `cards` | `cleared`, `picked`, `cards`: `[{key, title, text, taken}]` |
 | `picks` | `picked`: slots that have chosen |
-| `over` | `mode`, `outcome` (`blue`\|`red`\|`draw`), `levels`, `rank` (hall of fame place or -1), `players`: `[{slot, name, team, bot, shots, gateMobs, kills, baseDamage, giants, bombs}]` |
+| `over` | `mode`, `outcome` (`blue`\|`red`\|`draw`), `levels`, `rank` (hall of fame place or -1; daily runs go on the daily board instead), `daily`? `{day, scored, place, replay}` (scored: the name's first run that day; replay: its id), `replayOf`? (replay rooms), `players`: `[{slot, name, team, bot, shots, gateMobs, kills, baseDamage, giants, bombs}]` |
+| `dailyboard` | `day`, `played` (this name has scored today), `players`, `entries`: `[{name, levels, kills, replay}]`, best first (top 10; `replay` is an id for `watch`) |
+| `ghost` | daily rooms, twice a second, when the day has a best run: `name`, `level`, `cleared`, `enemy` (the ghost's enemy base health, 0..1), `x` (its cannon), `over` |
 | `emote` | `id`, `slot`, `e`, `name` |
 | `pong` | `n` |
 | `error` | `message` |
