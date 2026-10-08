@@ -4,6 +4,7 @@
 export const Phase = Object.freeze({ Lobby: 0, Countdown: 1, Playing: 2, Upgrade: 3, Over: 4 });
 export const Outcome = Object.freeze({ None: 0, Blue: 1, Red: 2, Draw: 3 });
 export const MobKind = Object.freeze({ Grunt: 0, Runner: 1, Giant: 2, Brute: 3 });
+export const PowerUpKind = Object.freeze({ Shot: 0, Freeze: 1, Flip: 2, Shield: 3, Magnet: 4 });
 export const EventType = Object.freeze({
   GatePass: 1,
   BaseHit: 2,
@@ -60,6 +61,8 @@ export function decodeSnapshot(buffer) {
   snap.outcome = u8();
   snap.bases = [];
   for (let t = 0; t < 2; t++) snap.bases.push({ hp: i32(), max: i32() });
+  snap.effects = [];
+  for (let t = 0; t < 2; t++) snap.effects.push({ shield: i32(), frozen: u8() / 10, flipped: u8() / 10 });
 
   snap.cannons = [];
   for (let n = u8(), i = 0; i < n; i++) {
@@ -81,6 +84,7 @@ export function decodeSnapshot(buffer) {
       firing: (flags & 2) !== 0,
       giantReady: (flags & 4) !== 0,
       phasing: (flags & 8) !== 0,
+      magnet: (flags & 16) !== 0,
       volley,
       phase,
     });
@@ -106,7 +110,7 @@ export function decodeSnapshot(buffer) {
 
   snap.powerups = [];
   for (let n = u8(), i = 0; i < n; i++) {
-    snap.powerups.push({ id: u32(), x: coord(), y: coord(), hp: u16(), max: u16() });
+    snap.powerups.push({ id: u32(), kind: u8(), x: coord(), y: coord(), hp: u16(), max: u16() });
   }
 
   snap.events = [];

@@ -104,6 +104,13 @@ World::World(WorldConfig config) : level_(std::move(config.level)), rng_(config.
   wave_timer_ = level_.ai.first_wave;
   boss_timer_ = level_.ai.first_boss;
   powerup_timer_ = level_.powerups.first;
+  bool blue_gates = false;
+  bool red_gates = false;
+  for (const Gate& gate : level_.gates) {
+    blue_gates = blue_gates || (gate.teams & team_bit(Team::Blue)) != 0;
+    red_gates = red_gates || (gate.teams & team_bit(Team::Red)) != 0;
+  }
+  flip_useful_ = blue_gates && red_gates;
 }
 
 Cannon* World::find_cannon(int slot) {
@@ -203,6 +210,10 @@ void World::step(double dt) {
     frenzy_ = true;
     emit({EventType::Frenzy, Team::Blue, {kFieldWidth / 2.0, kFieldLength / 2.0}, 0, -1});
   }
+  for (TeamEffects& effects : effects_) {
+    effects.frozen = std::max(0.0, effects.frozen - dt);
+    effects.flipped = std::max(0.0, effects.flipped - dt);
+  }
   step_cannons(dt);
   step_ai(dt);
   step_bombs(dt);
@@ -232,6 +243,7 @@ void World::step_cannons(double dt) {
     const double reach = kCannonSpeed * dt;
     cannon.x += std::clamp(target - cannon.x, -reach, reach);
     cannon.bomb_cooldown = std::max(0.0, cannon.bomb_cooldown - dt);
+    cannon.magnet_time = std::max(0.0, cannon.magnet_time - dt);
     if (cannon.phase_time > 0.0) {
       cannon.phase_time = std::max(0.0, cannon.phase_time - dt);
       if (cannon.phase_time <= 0.0) cannon.phase_cooldown = kPhaseCooldown;
@@ -381,6 +393,7 @@ void World::step_powerups(double dt) {
       if (powerups_.size() < kMaxPowerUps) {
         PowerUp powerup;
         powerup.id = next_id_++;
+        powerup.kind = roll_powerup_kind();
         const bool from_left = rng_.chance(0.5);
         double y = rng_.uniform(spec.y_min, spec.y_max);
         if (spec.mirror && rng_.chance(0.5)) y = kFieldLength - y;
@@ -405,11 +418,7 @@ void World::step_powerups(double dt) {
       mob.hp -= spent;
       powerup.hp -= spent;
       if (powerup.hp > 0) continue;
-      Cannon* breaker = find_cannon(mob.owner);
-      if (breaker != nullptr) {
-        breaker->shots_per_volley = std::min(kMaxShotsPerVolley, breaker->shots_per_volley + 1);
-        emit({EventType::PowerUp, breaker->team, powerup.position, breaker->shots_per_volley, breaker->slot});
-      }
+      if (Cannon* breaker = find_cannon(mob.owner)) break_powerup(powerup, *breaker);
       break;
     }
   }
@@ -418,6 +427,49 @@ void World::step_powerups(double dt) {
     return powerup.hp <= 0 || (powerup.velocity > 0.0 ? powerup.position.x > kFieldWidth + kPowerUpRadius
                                                        : powerup.position.x < -kPowerUpRadius);
   });
+}
+
+PowerUpKind World::roll_powerup_kind() {
+  const auto& weights = level_.powerups.weights;
+  double total = 0.0;
+  for (const double weight : weights) total += std::max(weight, 0.0);
+  double roll = rng_.unit() * total;
+  auto kind = PowerUpKind::Shot;
+  for (int k = 0; k < kPowerUpKinds; ++k) {
+    const double weight = std::max(weights.at(static_cast<std::size_t>(k)), 0.0);
+    if (roll < weight) {
+      kind = static_cast<PowerUpKind>(k);
+      break;
+    }
+    roll -= weight;
+  }
+  return kind == PowerUpKind::Flip && !flip_useful_ ? PowerUpKind::Shot : kind;
+}
+
+void World::break_powerup(const PowerUp& powerup, Cannon& breaker) {
+  const Team team = breaker.team;
+  TeamEffects& enemy = effects_.at(static_cast<std::size_t>(team_index(other_team(team))));
+  switch (powerup.kind) {
+    case PowerUpKind::Shot:
+      breaker.shots_per_volley = std::min(kMaxShotsPerVolley, breaker.shots_per_volley + 1);
+      break;
+    case PowerUpKind::Freeze:
+      enemy.frozen = kFreezeSeconds;
+      break;
+    case PowerUpKind::Flip:
+      enemy.flipped = kFlipSeconds;
+      break;
+    case PowerUpKind::Shield: {
+      const Base& base = bases_.at(static_cast<std::size_t>(team_index(team)));
+      TeamEffects& own = effects_.at(static_cast<std::size_t>(team_index(team)));
+      own.shield += std::max(1, static_cast<int>(std::lround(base.max_hp * kShieldShare)));
+      break;
+    }
+    case PowerUpKind::Magnet:
+      breaker.magnet_time = kMagnetSeconds;
+      break;
+  }
+  emit({EventType::PowerUp, team, powerup.position, static_cast<int>(powerup.kind), breaker.slot});
 }
 
 void World::apply_gate(std::size_t gate_index, Mob& mob, std::vector<Mob>& born) {
@@ -429,8 +481,9 @@ void World::apply_gate(std::size_t gate_index, Mob& mob, std::vector<Mob>& born)
   int& gain = gate_gain_[gate_index * kTeamCount + static_cast<std::size_t>(team_index(mob.team))];
   const bool big = is_big(mob.kind);
 
+  const bool flipped = effects_.at(static_cast<std::size_t>(team_index(mob.team))).flipped > 0.0;
   int extra = 0;
-  switch (gate.op) {
+  switch (flipped ? GateOp::Half : gate.op) {
     case GateOp::Add: {
       extra = gate.value;
       if (frenzy_) extra += extra / 2;
@@ -486,8 +539,25 @@ void World::step_mobs(double dt) {
     if (mob.hp <= 0) continue;
     const double dir = team_direction(mob.team);
     const Cannon* owner = mob.owner >= 0 ? cannon(mob.owner) : nullptr;
-    const double speed = mob_speed(mob.kind) * (owner != nullptr ? owner->stats.speed_scale : 1.0);
+    const TeamEffects& effects = effects_.at(static_cast<std::size_t>(team_index(mob.team)));
+    const double speed = mob_speed(mob.kind) * (owner != nullptr ? owner->stats.speed_scale : 1.0) *
+                         (effects.frozen > 0.0 ? 0.5 : 1.0);
     const bool immune = owner != nullptr && owner->phase_time > 0.0;
+    if (owner != nullptr && owner->magnet_time > 0.0 && !is_big(mob.kind)) {
+      // Pulled sideways toward the nearest gate ahead that would help.
+      double best = 10.0;
+      double pull_to = mob.position.x;
+      for (std::size_t g = 0; g < level_.gates.size(); ++g) {
+        const Gate& gate = level_.gates[g];
+        if ((gate.teams & team_bit(mob.team)) == 0 || ((mob.gates_passed >> g) & 1U) != 0) continue;
+        if (gate.op == GateOp::Half || effects.flipped > 0.0) continue;
+        const double ahead = (gate.y - mob.position.y) * dir;
+        if (ahead <= 0.0 || ahead >= best) continue;
+        best = ahead;
+        pull_to = gate_x(g);
+      }
+      mob.drift += std::clamp(pull_to - mob.position.x, -2.0, 2.0) * 9.0 * dt;
+    }
     const double previous_y = mob.position.y;
     const double radius = mob_radius(mob);
     mob.position.y += dir * speed * dt;
@@ -527,10 +597,14 @@ void World::step_mobs(double dt) {
     if (reached) {
       const Team target = other_team(mob.team);
       Base& base = bases_.at(static_cast<std::size_t>(team_index(target)));
-      const int damage = mob.hp * damage_scale(mob.kind);
+      int& shield = effects_.at(static_cast<std::size_t>(team_index(target))).shield;
+      int damage = mob.hp * damage_scale(mob.kind);
+      const int soaked = std::min(shield, damage);
+      shield -= soaked;
+      damage -= soaked;
       base.hp = std::max(0, base.hp - damage);
       tally_for(mob.owner).base_damage += damage;
-      emit({EventType::BaseHit, target, mob.position, damage, mob.owner});
+      if (damage > 0) emit({EventType::BaseHit, target, mob.position, damage, mob.owner});
       mob.hp = 0;
     }
   }

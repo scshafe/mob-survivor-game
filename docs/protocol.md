@@ -1,4 +1,4 @@
-# Wire protocol (version 3)
+# Wire protocol (version 4)
 
 One WebSocket per browser tab, at `GET /ws`. Text frames carry JSON objects,
 each with a type in `t`. Binary frames carry snapshots (server to client only).
@@ -79,11 +79,12 @@ of a world unit.
 | flags (bit 0: frenzy) | u8 |
 | outcome (0 none, 1 Blue wins, 2 Red wins, 3 draw) | u8 |
 | bases, Blue then Red: hp, max hp | 2 x (i32, i32) |
-| cannon count, then each: slot u8, team u8, x coord, charge u8 (/255), bomb cooldown u8 (tenths of s), flags u8 (1 connected, 2 firing, 4 giant ready, 8 phasing), mobs per volley u8, phase u8 (/255: while phasing the time left, else how far Phase has recharged; 255 is ready) | u8 + n x 9 |
+| team effects, Blue then Red: shield (damage the base still soaks up) i32, frozen u8 (tenths of s left), flipped u8 (tenths of s left) | 2 x (i32, u8, u8) |
+| cannon count, then each: slot u8, team u8, x coord, charge u8 (/255), bomb cooldown u8 (tenths of s), flags u8 (1 connected, 2 firing, 4 giant ready, 8 phasing, 16 magnet), mobs per volley u8, phase u8 (/255: while phasing the time left, else how far Phase has recharged; 255 is ready) | u8 + n x 9 |
 | gate count, then each gate's current x | u8 + n x coord |
 | saw count, then each saw's current x | u8 + n x coord |
 | bomb count, then each: team u8, from x, from y, target x, target y, radius (coords), fuse u8 (hundredths of s) | u8 + n x 12 |
-| power-up count, then each: id u32, x, y (coords), hp u16, max hp u16 | u8 + n x 12 |
+| power-up count, then each: id u32, kind u8, x, y (coords), hp u16, max hp u16 | u8 + n x 13 |
 | event count, then each: type u8, team u8, index i16, x, y (coords), value i32 | u16 + n x 12 |
 | mob count, then each: id u32, x, y (coords), team and kind u8 (bit 0 team, bits 1-3 kind, bit 4 phased), hp u16 | u16 + n x 11 |
 
@@ -91,8 +92,13 @@ Mob kinds: 0 grunt, 1 runner, 2 giant, 3 brute. Event types: 1 gate pass
 (value: mobs gained, negative for a "/2" cull; index: gate), 2 base hit (team:
 the base hit; value: damage), 3 bomb blast (value: mobs destroyed), 4 giant
 launch, 5 saw cut, 6 frenzy, 7 boss spawn, 8 power-up broken (index: the
-player slot that broke it; value: that player's new mobs per volley), 9 phase
+player slot that broke it; value: its kind), 9 phase
 (index: the player whose mobs started to phase).
+
+Power-up kinds: 0 "+1 shot" (the breaker fires one more mob a volley), 1 freeze
+(the breaker's enemies march at half speed), 2 flip (every gate counts as "/2"
+for the breaker's enemies), 3 shield (the breaker's base soaks up damage), 4
+magnet (the breaker's mobs drift toward the gate ahead).
 
 Power-up ids come from the same counter as mob ids, so the client can
 interpolate them by id the same way.

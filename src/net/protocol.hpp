@@ -11,7 +11,7 @@
 namespace mob_survivor::net {
 
 // Bumped whenever a message changes shape; the client checks it on welcome.
-inline constexpr int kProtocolVersion = 3;
+inline constexpr int kProtocolVersion = 4;
 
 // The first byte of every binary message.
 inline constexpr std::uint8_t kSnapshotKind = 1;

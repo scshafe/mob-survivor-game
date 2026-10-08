@@ -141,8 +141,8 @@ LevelSpec make_campaign_level(int number, int players, std::uint64_t seed) {
   }
 
   PowerUpSpec& powerups = level.powerups;
-  powerups.first = 7.0;
-  powerups.interval = 16.0;
+  powerups.first = 6.0;
+  powerups.interval = 9.0;
   powerups.hp = 10 + 2 * std::min(number, 10);
   powerups.y_min = first_row + 2.5;
   powerups.y_max = last_row - 2.5;

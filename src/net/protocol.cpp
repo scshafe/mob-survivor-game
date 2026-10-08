@@ -103,6 +103,12 @@ std::string encode_snapshot(const Match& match, const std::vector<Event>& events
     out.i32(base.hp);
     out.i32(base.max_hp);
   }
+  for (int t = 0; t < kTeamCount; ++t) {
+    const TeamEffects& effects = world.effects(static_cast<Team>(t));
+    out.i32(effects.shield);
+    out.u8(static_cast<unsigned>(std::lround(std::clamp(effects.frozen, 0.0, 25.5) * 10.0)));
+    out.u8(static_cast<unsigned>(std::lround(std::clamp(effects.flipped, 0.0, 25.5) * 10.0)));
+  }
 
   const auto& cannons = world.cannons();
   out.u8(static_cast<unsigned>(std::min<std::size_t>(cannons.size(), 255)));
@@ -115,7 +121,7 @@ std::string encode_snapshot(const Match& match, const std::vector<Event>& events
     out.u8(static_cast<unsigned>(std::lround(std::clamp(cannon.bomb_cooldown, 0.0, 25.5) * 10.0)));
     const bool phasing = cannon.phase_time > 0.0;
     const unsigned flags = (cannon.connected ? 1U : 0U) | (cannon.firing ? 2U : 0U) | (cannon.charge >= 1.0 ? 4U : 0U) |
-                           (phasing ? 8U : 0U);
+                           (phasing ? 8U : 0U) | (cannon.magnet_time > 0.0 ? 16U : 0U);
     out.u8(flags);
     out.u8(static_cast<unsigned>(std::clamp(cannon.shots_per_volley, 0, 255)));
     // While phasing: the time left; otherwise how far it has recharged.
@@ -149,6 +155,7 @@ std::string encode_snapshot(const Match& match, const std::vector<Event>& events
   for (std::size_t p = 0; p < powerups.size() && p < 255; ++p) {
     const PowerUp& powerup = powerups[p];
     out.u32(powerup.id);
+    out.u8(static_cast<unsigned>(powerup.kind));
     out.coord(powerup.position.x);
     out.coord(powerup.position.y);
     out.u16(static_cast<unsigned>(std::clamp(powerup.hp, 0, 65535)));

@@ -149,9 +149,9 @@ void snapshots_have_the_documented_size() {
   const auto events = match.take_events();
   const std::string bytes = encode_snapshot(match, events);
   const World& world = match.world();
-  const std::size_t expected = 18 + 16 + 1 + world.cannons().size() * 9 + 1 + world.level().gates.size() * 2 + 1 +
+  const std::size_t expected = 18 + 16 + 12 + 1 + world.cannons().size() * 9 + 1 + world.level().gates.size() * 2 + 1 +
                                world.level().saws.size() * 2 + 1 + world.bombs().size() * 12 + 1 +
-                               world.powerups().size() * 12 + 2 + events.size() * 12 +
+                               world.powerups().size() * 13 + 2 + events.size() * 12 +
                                2 + world.mobs().size() * 11;
   CHECK(bytes.size() == expected);
   CHECK(static_cast<std::uint8_t>(bytes[0]) == kSnapshotKind);
