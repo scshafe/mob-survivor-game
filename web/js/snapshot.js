@@ -15,6 +15,7 @@ export const EventType = Object.freeze({
   BossSpawn: 7,
   PowerUp: 8,
   Phase: 9,
+  Teleport: 10,
 });
 
 const SNAPSHOT_KIND = 1;

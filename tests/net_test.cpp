@@ -161,6 +161,7 @@ void snapshots_have_the_documented_size() {
 
   const auto level = parse_json(encode_level(match));
   CHECK(level.has_value() && level->get_string("t") == "level" && level->get_number("level") == 1);
+  CHECK(level->get_string("layout") == "open");
   CHECK(!encode_cards(match, 0));  // not the upgrade phase
 }
 

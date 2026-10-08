@@ -11,7 +11,7 @@
 namespace mob_survivor::net {
 
 // Bumped whenever a message changes shape; the client checks it on welcome.
-inline constexpr int kProtocolVersion = 5;
+inline constexpr int kProtocolVersion = 6;
 
 // The first byte of every binary message.
 inline constexpr std::uint8_t kSnapshotKind = 1;
@@ -21,6 +21,7 @@ inline constexpr std::uint8_t kSnapshotKind = 1;
 [[nodiscard]] std::string_view phase_name(Phase phase);
 [[nodiscard]] std::string_view outcome_name(Outcome outcome);
 [[nodiscard]] std::string_view gate_op_name(GateOp op);
+[[nodiscard]] std::string_view layout_name(Layout layout);
 
 // The binary snapshot of a running match (layout in docs/protocol.md).
 [[nodiscard]] std::string encode_snapshot(const Match& match, const std::vector<Event>& events);

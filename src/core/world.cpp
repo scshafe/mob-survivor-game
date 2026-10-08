@@ -102,6 +102,8 @@ World::World(WorldConfig config) : level_(std::move(config.level)), rng_(config.
   }
   gate_gain_.assign(level_.gates.size() * kTeamCount, 0);
   fuse_fill_.assign(level_.gates.size() * kTeamCount, 0);
+  if (level_.teleporters.size() > kMaxTeleporters) level_.teleporters.resize(kMaxTeleporters);
+  teleport_count_.assign(level_.teleporters.size() * 2, 0);
   wave_timer_ = level_.ai.first_wave;
   boss_timer_ = level_.ai.first_boss;
   powerup_timer_ = level_.powerups.first;
@@ -227,6 +229,13 @@ void World::step(double dt) {
   resolve_contacts(dt);
   std::erase_if(mobs_, [](const Mob& mob) { return mob.hp <= 0; });
 
+  for (std::size_t pad = 0; pad < teleport_count_.size(); ++pad) {
+    if (teleport_count_[pad] == 0) continue;
+    const Teleporter& pads = level_.teleporters[pad / 2];
+    const Vec2 out = pad % 2 == 0 ? pads.b : pads.a;
+    emit({EventType::Teleport, Team::Blue, out, teleport_count_[pad], static_cast<int>(pad)});
+    teleport_count_[pad] = 0;
+  }
   for (std::size_t g = 0; g < level_.gates.size(); ++g) {
     for (int t = 0; t < kTeamCount; ++t) {
       int& gain = gate_gain_[g * kTeamCount + static_cast<std::size_t>(t)];
@@ -558,6 +567,7 @@ void World::apply_gate(std::size_t gate_index, Mob& mob, std::vector<Mob>& born)
     clone.kind = mob.kind == MobKind::Runner ? MobKind::Runner : MobKind::Grunt;
     clone.owner = mob.owner;
     clone.gates_passed = mob.gates_passed;
+    clone.teleported = mob.teleported;
     clone.hp = total / bodies + (i < total % bodies ? 1 : 0);
     clone.position.x = std::clamp(mob.position.x + rng_.uniform(-0.9, 0.9), 0.3, kFieldWidth - 0.3);
     clone.position.y = gate.y + dir * rng_.uniform(0.05, 0.8);
@@ -599,6 +609,7 @@ void World::step_mobs(double dt) {
     mob.position.y += dir * speed * dt;
     mob.drift *= damping;
     mob.position.x = std::clamp(mob.position.x + mob.drift * dt, radius, kFieldWidth - radius);
+    apply_layout(mob, radius, immune, dt);
     mob.saw_cooldown = std::max(0.0, mob.saw_cooldown - dt);
 
     for (std::size_t g = 0; g < level_.gates.size(); ++g) {
@@ -649,6 +660,46 @@ void World::step_mobs(double dt) {
     }
   }
   for (Mob& baby : born) spawn(baby);
+}
+
+// Belts, walls and teleport pads, after a mob has moved.
+void World::apply_layout(Mob& mob, double radius, bool immune, double dt) {
+  if (!immune) {
+    for (const Conveyor& belt : level_.conveyors) {
+      if (mob.position.y >= belt.y0 && mob.position.y <= belt.y1) {
+        mob.position.x = std::clamp(mob.position.x + belt.push * dt, radius, kFieldWidth - radius);
+      }
+    }
+  }
+  for (const Wall& wall : level_.walls) {
+    if (mob.position.y < wall.y0 - radius || mob.position.y > wall.y1 + radius) continue;
+    const double left = wall.x0 - radius;
+    const double right = wall.x1 + radius;
+    if (mob.position.x <= left || mob.position.x >= right) continue;
+    // Out by the nearer side that is still on the field, then on along the wall.
+    const bool left_open = left >= radius;
+    const bool right_open = right <= kFieldWidth - radius;
+    const bool go_left = left_open && (!right_open || mob.position.x - left < right - mob.position.x);
+    mob.position.x = go_left ? left : right;
+    mob.drift = go_left ? std::min(mob.drift, -0.5) : std::max(mob.drift, 0.5);
+  }
+  for (std::size_t p = 0; p < level_.teleporters.size(); ++p) {
+    if (((mob.teleported >> p) & 1U) != 0) continue;
+    const Teleporter& pads = level_.teleporters[p];
+    const auto on = [&](const Vec2& pad) {
+      const double dx = mob.position.x - pad.x;
+      const double dy = mob.position.y - pad.y;
+      return dx * dx + dy * dy <= pads.radius * pads.radius;
+    };
+    const bool on_a = on(pads.a);
+    if (!on_a && !on(pads.b)) continue;
+    const Vec2& from = on_a ? pads.a : pads.b;
+    const Vec2& to = on_a ? pads.b : pads.a;
+    mob.position.x = std::clamp(to.x + (mob.position.x - from.x), radius, kFieldWidth - radius);
+    mob.position.y = to.y + (mob.position.y - from.y);
+    mob.teleported = static_cast<std::uint8_t>(mob.teleported | (1U << p));
+    ++teleport_count_[p * 2 + (on_a ? 0 : 1)];
+  }
 }
 
 void World::resolve_contacts(double dt) {

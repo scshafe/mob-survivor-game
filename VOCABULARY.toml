@@ -100,3 +100,16 @@ are picked between campaign levels and last the whole run.
 """
 refs = ["include/mob_survivor/world.hpp", "docs/design.md"]
 aliases = ["+1 shot", "orb", "freeze", "shield", "magnet"]
+
+[[term]]
+slug = "layout"
+title = "Layout"
+definition = """
+The named shape of a level's lane: open, hourglass (walls pinch the middle),
+twin lanes (a centre wall splits it), conveyor (belts carry mobs sideways) or
+teleporters (pads swap mobs across). Rolled per campaign level from level 3 and
+per versus arena; point-symmetric in versus. Not the gates: gates are laid out
+in rows on top of any layout.
+"""
+refs = ["include/mob_survivor/level.hpp", "docs/design.md"]
+aliases = ["map", "arena", "hourglass", "twin lanes", "conveyor", "teleporter"]

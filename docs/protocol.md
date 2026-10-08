@@ -1,4 +1,4 @@
-# Wire protocol (version 5)
+# Wire protocol (version 6)
 
 One WebSocket per browser tab, at `GET /ws`. Text frames carry JSON objects,
 each with a type in `t`. Binary frames carry snapshots (server to client only).
@@ -52,7 +52,7 @@ Bump `kProtocolVersion` (`src/net/protocol.hpp`) and `PROTOCOL`
 | `rooms` | `rooms`: `[{code, mode, phase, seated, members, maxSeats, host, level?}]` |
 | `board` | `entries`: `[{names, levels, kills, when}]`, best first |
 | `room` | `code`, `mode`, `public`, `phase` (`lobby`\|`countdown`\|`playing`\|`upgrade`\|`over`), `host`, `you`, `maxSeats`, `members`: `[{id, name, team, bot, seated, slot, connected, host}]` |
-| `level` | `serial`, `level`, `mode`, `boss`, `field` `{w, h, baseDepth, cannonOffset, powerUpRadius, maxVolley}`, `timeLimit`, `frenzyAt`, `gates`: `[{x, y, w, op, v, teams, moving}]` (`op`: `mul`, `add`, `half`, `fuse` (v: hit points per giant), `runner`, `armor`), `saws`: `[{y, r}]` |
+| `level` | `serial`, `level`, `mode`, `boss`, `field` `{w, h, baseDepth, cannonOffset, powerUpRadius, maxVolley}`, `timeLimit`, `frenzyAt`, `gates`: `[{x, y, w, op, v, teams, moving}]` (`op`: `mul`, `add`, `half`, `fuse` (v: hit points per giant), `runner`, `armor`), `saws`: `[{y, r}]`, `layout` (`open`\|`hourglass`\|`twin`\|`conveyor`\|`teleport`), `walls`: `[{x0, x1, y0, y1}]` (mobs cannot enter), `conveyors`: `[{y0, y1, push}]` (units a second, + toward larger x), `teleporters`: `[{ax, ay, bx, by, r}]` (pad pairs) |
 | `cards` | `cleared`, `picked`, `cards`: `[{key, title, text, taken}]` |
 | `picks` | `picked`: slots that have chosen |
 | `over` | `mode`, `outcome` (`blue`\|`red`\|`draw`), `levels`, `rank` (hall of fame place or -1), `players`: `[{slot, name, team, bot, shots, gateMobs, kills, baseDamage, giants, bombs}]` |
@@ -93,7 +93,9 @@ Mob kinds: 0 grunt, 1 runner, 2 giant, 3 brute. Event types: 1 gate pass
 the base hit; value: damage), 3 bomb blast (value: mobs destroyed), 4 giant
 launch, 5 saw cut, 6 frenzy, 7 boss spawn, 8 power-up broken (index: the
 player slot that broke it; value: its kind), 9 phase
-(index: the player whose mobs started to phase).
+(index: the player whose mobs started to phase), 10 teleport (value: mobs
+moved; index: the pad they left, 2 x pair + 1 for pad b; x, y: the pad they
+came out of).
 
 Power-up kinds: 0 "+1 shot" (the breaker fires one more mob a volley), 1 freeze
 (the breaker's enemies march at half speed), 2 flip (every gate counts as "/2"
