@@ -45,6 +45,19 @@ their own base at the bottom (Red's view is turned 180 degrees).
   newly fired) ignore the map, meaning saw blades and "/2" gates, but still
   fight enemy mobs, take bomb damage and hit the base as usual. It recharges
   for 20 s after it ends, and starts each level ready.
+- **Layouts**: each campaign level from level 3, and each versus arena, rolls
+  one of five shapes (equally likely): **Open** (the plain lane);
+  **Hourglass**, walls 3 deep from both side walls leaving an 8-unit gap, on
+  the gap between gate rows nearest the centre line (a saw there keeps to the
+  gap); **Twin Lanes**, a wall down the centre from the first gate row to the
+  last, with a crossing 2.4 units wide in the middle, and every gate row two
+  gates (no sliding ones), one a lane; **Conveyor**, belts 1.6 deep between
+  the gate rows that carry mobs sideways at 2.2-3 units a second, alternating
+  direction; **Teleporters**, pairs of pads 3.5 units in from the side walls
+  between the gate rows: a mob stepping on one comes out of the other, once a
+  pair. Walls push mobs out sideways and they walk on along them; power-ups,
+  bombs and saw blades pass over. Phasing mobs are not carried by belts. In
+  versus every piece is point-symmetric, like the gates.
 - **Power-ups**: orbs drift in from one side wall and out by the other
   (1.4-2.4 units a second). A player's grunts and runners that run into one
   are spent on it, one hit point for one; the player whose mob breaks it gets
@@ -121,8 +134,8 @@ then the field).
   launch when you choose, and Phase to slip a crowd past the hazards.
 - Drifting power-ups (+1 shot, freeze, flip, shield, magnet) you have to hit
   to claim.
-- Sliding gates, `/2` gates, shared gates, fuse, runner and armor gates, and
-  saw blades.
+- Sliding gates, `/2` gates, shared gates, fuse, runner and armor gates, saw
+  blades, and named layouts (hourglass, twin lanes, conveyor, teleporters).
 - Boss levels, the versus Frenzy, emotes and a hall of fame.
 
 ## Balance
@@ -131,9 +144,11 @@ then the field).
 built-in bot (`src/core/bot.cpp`) plays the campaign and versus at a chosen
 skill, goes for power-ups when nothing threatens its base, and phases when a
 dozen of its mobs are about to meet a saw or a "/2" gate. At the numbers in
-the code, a skilled bot alone clears 4-13 campaign levels (about 8 on average
-over seeds 1-12); an idle player loses level 1 in about 30 s; bot-against-bot
-versus rounds last one to three minutes (about 115 s on average over seeds
-1-8). Saws deal about 320 damage a minute of campaign play, across both
+the code, a skilled bot alone clears 4-14 campaign levels (about 8.7 on
+average over seeds 1-24); an idle player loses level 1 in about 30 s;
+bot-against-bot versus rounds last one to three minutes (about 120 s on
+average over seeds 1-8). Every layout is about as winnable as the open lane:
+over seeds 1-40, levels 3-8, the bot wins 72-91% of each. Saws deal about 360
+damage a minute of campaign play, across both
 teams (680 before they were softened and Phase was added). `tests/match_test.cpp` keeps the
 broad shape (levels can be cleared, an idle player loses, versus ends).

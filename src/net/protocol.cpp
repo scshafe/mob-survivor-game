@@ -94,6 +94,22 @@ std::string_view gate_op_name(GateOp op) {
   return "add";
 }
 
+std::string_view layout_name(Layout layout) {
+  switch (layout) {
+    case Layout::Open:
+      return "open";
+    case Layout::Hourglass:
+      return "hourglass";
+    case Layout::TwinLanes:
+      return "twin";
+    case Layout::Conveyor:
+      return "conveyor";
+    case Layout::Teleporters:
+      return "teleport";
+  }
+  return "open";
+}
+
 std::string encode_snapshot(const Match& match, const std::vector<Event>& events) {
   const World& world = match.world();
   Bytes out;
@@ -228,6 +244,23 @@ std::string encode_level(const Match& match) {
   w.key("saws").begin_array();
   for (const Saw& saw : level.saws) {
     w.begin_object().field("y", saw.y).field("r", saw.radius).end_object();
+  }
+  w.end_array();
+  w.field("layout", layout_name(level.layout));
+  w.key("walls").begin_array();
+  for (const Wall& wall : level.walls) {
+    w.begin_object().field("x0", wall.x0).field("x1", wall.x1).field("y0", wall.y0).field("y1", wall.y1).end_object();
+  }
+  w.end_array();
+  w.key("conveyors").begin_array();
+  for (const Conveyor& belt : level.conveyors) {
+    w.begin_object().field("y0", belt.y0).field("y1", belt.y1).field("push", belt.push).end_object();
+  }
+  w.end_array();
+  w.key("teleporters").begin_array();
+  for (const Teleporter& pads : level.teleporters) {
+    w.begin_object().field("ax", pads.a.x).field("ay", pads.a.y).field("bx", pads.b.x).field("by", pads.b.y);
+    w.field("r", pads.radius).end_object();
   }
   w.end_array();
   w.end_object();

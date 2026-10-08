@@ -14,6 +14,13 @@ const BOMB_RADIUS = 2.6;
 const RING = 119.4; // circumference of the ability rings (r = 19)
 
 const $ = (id) => document.getElementById(id);
+// Named layouts: what the banner says when a level starts.
+const LAYOUTS = {
+  hourglass: ['Hourglass', 'Walls pinch the middle of the lane'],
+  twin: ['Twin Lanes', 'A wall splits the lane; they meet halfway'],
+  conveyor: ['Conveyor', 'Belts carry mobs sideways'],
+  teleport: ['Teleporters', 'Step on a pad, come out of its twin'],
+};
 
 export class GameView {
   constructor({ canvas, send }) {
@@ -96,9 +103,12 @@ export class GameView {
       this.gateTexts.clear();
       this.localX = null;
     }
+    const fresh = !this.level || level.serial !== this.level.serial;
     this.level = level;
     this.renderer.setField(level.field);
-    if (level.boss) this.showBanner('BOSS LEVEL', 'A brute is coming', '#fca5a5');
+    const layout = LAYOUTS[level.layout];
+    if (level.boss) this.showBanner('BOSS LEVEL', layout ? `${layout[0]} · A brute is coming` : 'A brute is coming', '#fca5a5', 2400);
+    else if (fresh && layout) this.showBanner(layout[0].toUpperCase(), layout[1], '#e0f2fe', 2400);
   }
 
   setActive(active) {
@@ -337,6 +347,10 @@ export class GameView {
         else this.effects.text(event.x, event.y + (event.team === 0 ? 2 : -2), '👻', '#ecfeff', 1.6, 1.0);
         break;
       }
+      case EventType.Teleport:
+        this.effects.ring(event.x, event.y, 1.4, '#c4b5fd', 0.35);
+        sfx.teleport();
+        break;
       case EventType.BossSpawn:
         this.showBanner('BOSS!', `${event.value} hp`, '#fca5a5');
         this.shake = Math.max(this.shake, 14);

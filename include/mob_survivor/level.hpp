@@ -45,6 +45,43 @@ struct Saw {
   double phase = 0.0;
 };
 
+// A level's named shape. Open is the plain lane; the others add walls,
+// conveyor belts or teleport pads between the gate rows.
+enum class Layout : std::uint8_t {
+  Open = 0,
+  Hourglass = 1,    // walls pinch the middle of the lane to a gap
+  TwinLanes = 2,    // a wall down the centre splits the lane, with a gap halfway
+  Conveyor = 3,     // belts across the lane carry mobs sideways
+  Teleporters = 4,  // pairs of pads: a mob stepping on one comes out of the other
+};
+inline constexpr int kLayoutCount = 5;
+
+// A block mobs cannot walk into: they are pushed out sideways and walk on
+// along it. Power-ups, bombs and saw blades pass over walls.
+struct Wall {
+  double x0 = 0.0;
+  double x1 = 0.0;
+  double y0 = 0.0;
+  double y1 = 0.0;
+};
+
+// A strip across the lane that carries every mob on it sideways at `push`
+// units a second (+ toward larger x). Phasing mobs are not carried.
+struct Conveyor {
+  double y0 = 0.0;
+  double y1 = 0.0;
+  double push = 0.0;
+};
+
+// Two pads on the same line: a mob that steps on either comes out of the
+// other, once per pair.
+struct Teleporter {
+  Vec2 a;
+  Vec2 b;
+  double radius = 1.0;
+};
+inline constexpr std::size_t kMaxTeleporters = 8;
+
 // How the AI base (Red, in the campaign) sends its waves.
 struct AiSpec {
   bool enabled = false;
@@ -90,6 +127,10 @@ struct LevelSpec {
   Mode mode = Mode::Campaign;
   std::vector<Gate> gates;
   std::vector<Saw> saws;
+  Layout layout = Layout::Open;
+  std::vector<Wall> walls;
+  std::vector<Conveyor> conveyors;
+  std::vector<Teleporter> teleporters;
   AiSpec ai;
   PowerUpSpec powerups;
   std::array<int, kTeamCount> base_hp{60, 60};

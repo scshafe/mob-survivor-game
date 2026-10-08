@@ -204,8 +204,10 @@ export class Renderer {
     const view = frame.view;
 
     this.drawBases(view, frame);
+    this.drawFloor(frame.level, frame.time);
     this.drawGates(frame.level, view, frame.time);
     this.drawSaws(frame.level, view, frame.time);
+    this.drawWalls(frame.level);
     if (frame.aim) this.drawAim(frame.aim, frame.level);
     this.drawMobs(view);
     this.drawPowerUps(view, frame.time, frame.level);
@@ -413,6 +415,100 @@ export class Renderer {
       ctx.fill();
       ctx.restore();
     });
+  }
+
+  // Layout pieces on the ground: conveyor belts and teleport pads.
+  drawFloor(level, time) {
+    const ctx = this.ctx;
+    const s = this.scale;
+    for (const belt of level.conveyors ?? []) {
+      const ya = this.sy(belt.y0);
+      const yb = this.sy(belt.y1);
+      const top = Math.min(ya, yb);
+      const height = Math.abs(yb - ya);
+      ctx.fillStyle = 'rgba(30,41,59,0.55)';
+      ctx.fillRect(this.ox, top, this.W * s, height);
+      // Chevrons that run the way the belt pushes, as the viewer sees it.
+      const dir = Math.sign(this.sx(1) - this.sx(0)) * Math.sign(belt.push);
+      const spacing = s * 1.6;
+      const shift = ((time * Math.abs(belt.push) * s) % spacing) * dir;
+      ctx.strokeStyle = 'rgba(250,204,21,0.7)';
+      ctx.lineWidth = Math.max(1.5, s * 0.12);
+      ctx.beginPath();
+      for (let x = this.ox - spacing + shift; x < this.ox + this.W * s + spacing; x += spacing) {
+        if (x < this.ox || x > this.ox + this.W * s - s * 0.4) continue;
+        ctx.moveTo(x, top + height * 0.2);
+        ctx.lineTo(x + dir * s * 0.4, top + height * 0.5);
+        ctx.lineTo(x, top + height * 0.8);
+      }
+      ctx.stroke();
+    }
+    (level.teleporters ?? []).forEach((pads, i) => {
+      const color = ['#a78bfa', '#2dd4bf', '#f472b6', '#facc15'][i % 4];
+      const r = pads.r * s;
+      const ends = [
+        [this.sx(pads.ax), this.sy(pads.ay)],
+        [this.sx(pads.bx), this.sy(pads.by)],
+      ];
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.25;
+      ctx.setLineDash([s * 0.3, s * 0.5]);
+      ctx.lineWidth = Math.max(1, s * 0.08);
+      ctx.beginPath();
+      ctx.moveTo(ends[0][0], ends[0][1]);
+      ctx.lineTo(ends[1][0], ends[1][1]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      for (const [x, y] of ends) {
+        const glow = ctx.createRadialGradient(x, y, r * 0.1, x, y, r);
+        glow.addColorStop(0, 'rgba(255,255,255,0.6)');
+        glow.addColorStop(1, `${color}33`);
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(2, s * 0.12);
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.8, time * 3, time * 3 + Math.PI * 1.3);
+        ctx.stroke();
+      }
+    });
+  }
+
+  // Walls: stone blocks that mobs walk around.
+  drawWalls(level) {
+    const ctx = this.ctx;
+    const s = this.scale;
+    for (const wall of level.walls ?? []) {
+      const xa = this.sx(wall.x0);
+      const xb = this.sx(wall.x1);
+      const ya = this.sy(wall.y0);
+      const yb = this.sy(wall.y1);
+      const left = Math.min(xa, xb);
+      const top = Math.min(ya, yb);
+      const width = Math.abs(xb - xa);
+      const height = Math.abs(yb - ya);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(left + s * 0.15, top + s * 0.25, width, height);
+      ctx.fillStyle = '#64748b';
+      roundRect(ctx, left, top, width, height, s * 0.25);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(15,23,42,0.6)';
+      ctx.lineWidth = Math.max(1, s * 0.06);
+      ctx.stroke();
+      // Stone courses.
+      ctx.strokeStyle = 'rgba(15,23,42,0.25)';
+      ctx.beginPath();
+      for (let y = top + s * 0.8; y < top + height - s * 0.2; y += s * 0.8) {
+        ctx.moveTo(left + s * 0.1, y);
+        ctx.lineTo(left + width - s * 0.1, y);
+      }
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillRect(left + s * 0.1, top + s * 0.1, width - s * 0.2, Math.min(height * 0.2, s * 0.35));
+    }
   }
 
   drawAim(aim, level) {

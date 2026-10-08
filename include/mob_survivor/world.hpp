@@ -30,6 +30,7 @@ struct Mob {
   int hp = 1;          // a grunt with hp > 1 is a squad of that many
   std::uint32_t gates_passed = 0;  // bit i: gate i already changed this mob
   bool armored = false;            // its next hit (enemy, saw or bomb) does no harm
+  std::uint8_t teleported = 0;     // bit i: teleporter pair i already moved this mob
   double saw_cooldown = 0.0;
 };
 
@@ -121,6 +122,7 @@ enum class EventType : std::uint8_t {
   BossSpawn = 7,
   PowerUp = 8,      // a power-up broke; index: the player who broke it, value: its PowerUpKind
   Phase = 9,        // index: the player whose mobs just started to phase
+  Teleport = 10,    // value: mobs moved this step; index: pad (2 x pair, +1 for pad b) they left; position: where they came out
 };
 
 struct Event {
@@ -213,6 +215,7 @@ class World {
   void step_mobs(double dt);
   void apply_gate(std::size_t gate_index, Mob& mob, std::vector<Mob>& born);
   void resolve_contacts(double dt);
+  void apply_layout(Mob& mob, double radius, bool immune, double dt);
   void settle_outcome();
   Tally& tally_for(int slot);
 
@@ -244,6 +247,8 @@ class World {
   std::vector<int> gate_gain_;
   // Hit points each fuse gate has taken in toward its next giant, per team.
   std::vector<int> fuse_fill_;
+  // Mobs moved by each teleporter pad during one step, emitted as one event a pad.
+  std::vector<int> teleport_count_;
 
   // Scratch space for the contact grid, kept to avoid reallocating.
   std::vector<int> cell_of_;

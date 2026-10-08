@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 #include "check.hpp"
@@ -482,6 +483,74 @@ void armor_turns_away_a_saw_cut() {
   CHECK(!world.mobs().front().armored);
 }
 
+void walls_push_mobs_out_sideways() {
+  WorldConfig config = bare();
+  config.level.walls.push_back({0.0, 8.0, 18.0, 22.0});
+  World world(std::move(config));
+  world.spawn(owned_grunt(5.0, 17.0, 1));
+  for (int i = 0; i < 2 * 30; ++i) {
+    world.step(kTickSeconds);
+    const Mob& mob = world.mobs().front();
+    if (mob.position.y > 18.0 - mob_radius(mob) && mob.position.y < 22.0 + mob_radius(mob)) {
+      CHECK(mob.position.x >= 8.0 + mob_radius(mob) - 1e-9);
+    }
+  }
+  CHECK(world.mobs().front().position.y > 22.0);  // it walked on past the wall
+}
+
+void conveyors_carry_mobs_unless_they_phase() {
+  WorldConfig config = bare();
+  config.level.conveyors.push_back({19.0, 21.0, 3.0});
+  World world(std::move(config));
+  const std::uint32_t id = world.spawn(owned_grunt(10.0, 19.0, 1));
+  world.step(0.2);
+  CHECK_NEAR(world.mobs().front().position.x, 10.6, 1e-9);
+  world.request_phase(0);
+  world.step(kTickSeconds);  // Phase starts within this step's cannon pass
+  const double x = world.mobs().front().position.x;
+  world.step(0.1);
+  CHECK(world.mobs().front().id == id);
+  CHECK_NEAR(world.mobs().front().position.x, x, 1e-9);
+}
+
+void teleporters_move_a_mob_once() {
+  WorldConfig config = bare();
+  config.level.teleporters.push_back({{4.0, 20.0}, {20.0, 20.0}, 1.0});
+  World world(std::move(config));
+  world.spawn(owned_grunt(4.2, 19.5, 1));
+  world.step(0.1);
+  const Mob& mob = world.mobs().front();
+  CHECK(std::fabs(mob.position.x - 20.2) < 1e-9);
+  CHECK(mob.teleported == 1U);
+  const auto events = world.take_events();
+  CHECK(std::any_of(events.begin(), events.end(), [](const Event& e) {
+    return e.type == EventType::Teleport && e.index == 0 && e.value == 1;
+  }));
+  world.step(0.1);  // standing on pad b now: no bounce back
+  CHECK(std::fabs(world.mobs().front().position.x - 20.2) < 1e-9);
+}
+
+void campaign_layouts_are_varied_and_leave_room() {
+  std::array<int, kLayoutCount> seen{};
+  for (std::uint64_t seed = 1; seed <= 30; ++seed) {
+    for (int number = 1; number <= 12; ++number) {
+      const LevelSpec level = make_campaign_level(number, 1, seed);
+      if (number <= 2) CHECK(level.layout == Layout::Open);
+      ++seen.at(static_cast<std::size_t>(level.layout));
+      // No gate sits inside a wall, and the field stays passable.
+      for (const Gate& gate : level.gates) {
+        for (const Wall& wall : level.walls) {
+          const bool same_line = gate.y > wall.y0 && gate.y < wall.y1;
+          const double reach = gate.width / 2.0 + gate.amplitude;
+          CHECK(!same_line || gate.x + reach <= wall.x0 + 1e-9 || gate.x - reach >= wall.x1 - 1e-9);
+        }
+      }
+      for (const Wall& wall : level.walls) CHECK(wall.x1 - wall.x0 < kFieldWidth - 4.0);
+    }
+  }
+  for (const int count : seen) CHECK(count > 10);
+}
+
 void stepping_is_deterministic() {
   auto run = [] {
     WorldConfig config;
@@ -542,6 +611,28 @@ void versus_arenas_are_point_symmetric() {
     CHECK(a.op == b.op && a.value == b.value);
     for (double t = 0.0; t < 20.0; t += 1.3) CHECK_NEAR(gate_x_at(a, t) + gate_x_at(b, t), kFieldWidth, 1e-9);
   }
+  // Every layout's walls, belts and pads are point-symmetric too.
+  std::array<bool, kLayoutCount> seen{};
+  for (std::uint64_t seed = 1; seed <= 60; ++seed) {
+    const LevelSpec arena = make_versus_level(seed);
+    seen.at(static_cast<std::size_t>(arena.layout)) = true;
+    for (const Wall& wall : arena.walls) {
+      CHECK(std::any_of(arena.walls.begin(), arena.walls.end(), [&](const Wall& other) {
+        return std::fabs(other.x0 + wall.x1 - kFieldWidth) < 1e-9 && std::fabs(other.y0 + wall.y1 - kFieldLength) < 1e-9;
+      }));
+    }
+    for (const Conveyor& belt : arena.conveyors) {
+      CHECK(std::any_of(arena.conveyors.begin(), arena.conveyors.end(), [&](const Conveyor& other) {
+        return std::fabs(other.y0 + belt.y1 - kFieldLength) < 1e-9 && std::fabs(other.push + belt.push) < 1e-9;
+      }));
+    }
+    for (const Teleporter& pads : arena.teleporters) {
+      CHECK(std::any_of(arena.teleporters.begin(), arena.teleporters.end(), [&](const Teleporter& other) {
+        return std::fabs(other.a.x + pads.a.x - kFieldWidth) < 1e-9 && std::fabs(other.a.y + pads.a.y - kFieldLength) < 1e-9;
+      }));
+    }
+  }
+  for (const bool layout : seen) CHECK(layout);
 }
 
 }  // namespace
@@ -576,5 +667,9 @@ int main() {
   a_runner_gate_makes_runners();
   armor_turns_away_one_hit();
   armor_turns_away_a_saw_cut();
+  walls_push_mobs_out_sideways();
+  conveyors_carry_mobs_unless_they_phase();
+  teleporters_move_a_mob_once();
+  campaign_layouts_are_varied_and_leave_room();
   return check::finish("world_test");
 }

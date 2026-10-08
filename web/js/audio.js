@@ -127,6 +127,10 @@ export const sfx = {
     tone({ type: 'sine', from: 300, to: 1200, duration: 0.45, volume: 0.1 });
     tone({ type: 'sine', from: 450, to: 1800, duration: 0.45, volume: 0.05, delay: 0.04 });
   },
+  teleport() {
+    if (!throttle('teleport', 0.15)) return;
+    tone({ type: 'sine', from: 1200, to: 500, duration: 0.12, volume: 0.05 });
+  },
   powerUp() {
     if (!throttle('powerUp', 0.3)) return;
     tone({ type: 'triangle', from: 660, to: 660, duration: 0.1, volume: 0.12 });

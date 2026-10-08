@@ -189,7 +189,7 @@ def main():
         # Two friends: a campaign room, joined by code.
         ada = WebSocket(port, {"Tailscale-User-Name": "Ada"})
         welcome = ada.wait_for("welcome")
-        assert welcome["name"] == "Ada" and welcome["v"] == 5, welcome
+        assert welcome["name"] == "Ada" and welcome["v"] == 6, welcome
         ada.send({"t": "hello", "name": "Ada"})
         ada.send({"t": "create", "mode": "campaign"})
         room = ada.wait_for("room")
