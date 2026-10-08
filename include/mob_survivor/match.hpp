@@ -53,6 +53,7 @@ class Match {
   void set_input(int slot, double target_x, bool firing);
   void request_giant(int slot);
   void request_bomb(int slot, Vec2 target);
+  void request_phase(int slot);
   bool pick_card(int slot, int choice);
   void set_connected(int slot, bool connected);
 

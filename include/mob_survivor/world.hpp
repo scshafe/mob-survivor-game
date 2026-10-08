@@ -47,7 +47,10 @@ struct Cannon {
   double bomb_cooldown = 0.0;
   int shots_per_volley = 1;  // raised for the rest of the level by breaking power-ups
   PlayerStats stats;
+  double phase_cooldown = 0.0;  // until Phase can be used again
+  double phase_time = 0.0;      // > 0: this player's mobs ignore the map
   bool giant_requested = false;
+  bool phase_requested = false;
   std::optional<Vec2> bomb_request;
 };
 
@@ -59,6 +62,11 @@ inline constexpr double kBombRadius = 2.6;
 inline constexpr int kBombDamage = 6;
 inline constexpr std::size_t kMaxMobsPerTeam = 300;
 inline constexpr int kMaxShotsPerVolley = 3;
+// Phase: for a few seconds a player's mobs ignore the map (saw blades and
+// "/2" gates) but still fight enemy mobs and hit the base as usual.
+inline constexpr double kPhaseSeconds = 5.0;
+inline constexpr double kPhaseCooldown = 20.0;  // counted from when Phase ends
+inline constexpr double kSawCooldown = 0.8;     // a mob a saw cut is safe from it for this long
 inline constexpr double kPowerUpRadius = 0.9;
 inline constexpr std::size_t kMaxPowerUps = 2;
 
@@ -99,6 +107,7 @@ enum class EventType : std::uint8_t {
   Frenzy = 6,       // every gate just got stronger
   BossSpawn = 7,
   PowerUp = 8,      // a power-up broke; index: the player who broke it, value: their new shots per volley
+  Phase = 9,        // index: the player whose mobs just started to phase
 };
 
 struct Event {
@@ -145,6 +154,7 @@ class World {
   void set_input(int slot, double target_x, bool firing);
   void request_giant(int slot);
   void request_bomb(int slot, Vec2 target);
+  void request_phase(int slot);
   void set_connected(int slot, bool connected);
 
   void step(double dt_seconds);
@@ -168,6 +178,8 @@ class World {
   [[nodiscard]] Outcome outcome() const { return outcome_; }
   [[nodiscard]] std::size_t team_mob_count(Team team) const;
   [[nodiscard]] Tally tally(int slot) const;
+  // Whether this mob ignores the map just now (its player's Phase is on).
+  [[nodiscard]] bool phased(const Mob& mob) const;
 
   // Events since the last call, oldest first.
   std::vector<Event> take_events();

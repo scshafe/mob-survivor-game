@@ -14,6 +14,7 @@ the horde, or against each other.
   gates, saw blades, the versus Frenzy, emotes, and rejoining a match after a
   drop.
 - Controls: `A`/`D` or arrows and `Space` to slide and fire, `G` for a giant,
+  `F` to Phase (your mobs ignore saws and `/2` gates for 5 s),
   `B` then `h` `j` `k` `l` and `B`/`Enter` for a bomb (keys only; touch on a
   phone).
 

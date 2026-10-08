@@ -373,6 +373,10 @@ void Lobby::handle(ClientId id, Client& client, const JsonValue& message) {
     if (slot >= 0) match.request_giant(slot);
     return;
   }
+  if (type == "phase") {
+    if (slot >= 0) match.request_phase(slot);
+    return;
+  }
   if (type == "bomb") {
     if (slot >= 0) match.request_bomb(slot, {message.get_number("x", -1.0), message.get_number("y", -1.0)});
     return;

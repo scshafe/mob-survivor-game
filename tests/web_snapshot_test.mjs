@@ -31,6 +31,11 @@ check(snap.gateX.length === expected.gates, 'gates');
 check(snap.events.length === expected.events, 'events');
 check(snap.cannons[0].volley === expected.volley, 'first cannon volley');
 check(snap.powerups.length === expected.powerups, 'power-ups');
+check(snap.cannons.filter((c) => c.phasing).length === expected.phasingCannons, 'phasing cannons');
+check(snap.cannons.every((c) => c.phase >= 0 && c.phase <= 1), 'phase meters');
+check(snap.mobs.phased.reduce((a, b) => a + b, 0) === expected.phasedMobs, 'phased mobs');
+check(expected.phasedMobs > 0 && expected.phasingCannons > 0, 'the fixture has phasing mobs');
+check(snap.mobs.kinds.every((k) => k <= 3), 'mob kinds without the phase bit');
 check(expected.powerups > 0, 'the fixture has a power-up');
 if (expected.firstPowerUp) {
   const p = snap.powerups[0];

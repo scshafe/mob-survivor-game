@@ -13,6 +13,7 @@ export const EventType = Object.freeze({
   Frenzy: 6,
   BossSpawn: 7,
   PowerUp: 8,
+  Phase: 9,
 });
 
 const SNAPSHOT_KIND = 1;
@@ -69,6 +70,7 @@ export function decodeSnapshot(buffer) {
     const bombCooldown = u8() / 10;
     const flags = u8();
     const volley = u8();
+    const phase = u8() / 255;
     snap.cannons.push({
       slot,
       team,
@@ -78,7 +80,9 @@ export function decodeSnapshot(buffer) {
       connected: (flags & 1) !== 0,
       firing: (flags & 2) !== 0,
       giantReady: (flags & 4) !== 0,
+      phasing: (flags & 8) !== 0,
       volley,
+      phase,
     });
   }
 
@@ -117,16 +121,18 @@ export function decodeSnapshot(buffer) {
   const teams = new Uint8Array(count);
   const kinds = new Uint8Array(count);
   const hps = new Uint16Array(count);
+  const phased = new Uint8Array(count);
   for (let i = 0; i < count; i++) {
     ids[i] = u32();
     xs[i] = coord();
     ys[i] = coord();
     const packed = u8();
     teams[i] = packed & 1;
-    kinds[i] = packed >> 1;
+    kinds[i] = (packed >> 1) & 7;
+    phased[i] = (packed >> 4) & 1;
     hps[i] = u16();
   }
-  snap.mobs = { count, ids, xs, ys, teams, kinds, hps };
+  snap.mobs = { count, ids, xs, ys, teams, kinds, hps, phased };
   snap.size = at;
   return snap;
 }

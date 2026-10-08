@@ -136,6 +136,11 @@ void Match::request_bomb(int slot, Vec2 target) {
   if (phase_ == Phase::Playing && seat != nullptr && !seat->spec.bot) world_->request_bomb(slot, target);
 }
 
+void Match::request_phase(int slot) {
+  const MatchSeat* seat = find_seat(slot);
+  if (phase_ == Phase::Playing && seat != nullptr && !seat->spec.bot) world_->request_phase(slot);
+}
+
 void Match::set_connected(int slot, bool connected) {
   MatchSeat* seat = find_seat(slot);
   if (seat == nullptr || seat->spec.bot) return;
@@ -167,6 +172,7 @@ void Match::drive_bots(double dt) {
     world_->set_input(seat.spec.slot, command.target_x, command.firing);
     if (command.giant) world_->request_giant(seat.spec.slot);
     if (command.bomb) world_->request_bomb(seat.spec.slot, *command.bomb);
+    if (command.phase) world_->request_phase(seat.spec.slot);
   }
 }
 

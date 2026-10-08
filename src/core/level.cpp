@@ -124,7 +124,7 @@ LevelSpec make_campaign_level(int number, int players, std::uint64_t seed) {
     add_row(level.gates, y, number, number >= 2, number >= 3 && r != shared_row, teams, rng);
   }
 
-  const int saws = number >= 3 ? 1 + (number >= 7 ? 1 : 0) + (number >= 12 ? 1 : 0) : 0;
+  const int saws = number >= 3 ? 1 + (number >= 8 ? 1 : 0) + (number >= 15 ? 1 : 0) : 0;
   for (int s = 0; s < saws; ++s) {
     Saw saw;
     // Between two gate rows, so the saw guards the payoff of the row before.
@@ -132,7 +132,7 @@ LevelSpec make_campaign_level(int number, int players, std::uint64_t seed) {
     const double a = first_row + (last_row - first_row) * gap / (rows - 1);
     const double b = first_row + (last_row - first_row) * (gap + 1) / (rows - 1);
     saw.y = (a + b) / 2.0 + rng.uniform(-0.8, 0.8);
-    saw.radius = rng.uniform(0.8, 1.1);
+    saw.radius = rng.uniform(0.7, 0.95);
     saw.x = kFieldWidth / 2.0;
     saw.amplitude = rng.uniform(6.0, kFieldWidth / 2.0 - 1.5);
     saw.speed = rng.uniform(0.7, 1.5);
@@ -176,7 +176,7 @@ LevelSpec make_versus_level(std::uint64_t seed) {
   LevelSpec level;
   level.number = 1;
   level.mode = Mode::Versus;
-  level.base_hp = {4000, 4000};
+  level.base_hp = {4600, 4600};
   level.time_limit = 240.0;
   level.frenzy_at = 150.0;
   // Near the centre line, as likely on either side, so neither team is favoured.
@@ -205,7 +205,7 @@ LevelSpec make_versus_level(std::uint64_t seed) {
   Saw saw;
   saw.y = kFieldLength / 2.0;
   saw.x = kFieldWidth / 2.0;
-  saw.radius = 1.0;
+  saw.radius = 0.85;
   saw.amplitude = kFieldWidth / 2.0 - 2.0;
   saw.speed = 0.9;
   saw.phase = 0.0;

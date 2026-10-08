@@ -136,6 +136,15 @@ void World::request_bomb(int slot, Vec2 target) {
   if (Cannon* cannon = find_cannon(slot)) cannon->bomb_request = target;
 }
 
+void World::request_phase(int slot) {
+  if (Cannon* cannon = find_cannon(slot)) cannon->phase_requested = true;
+}
+
+bool World::phased(const Mob& mob) const {
+  const Cannon* owner = mob.owner >= 0 ? cannon(mob.owner) : nullptr;
+  return owner != nullptr && owner->phase_time > 0.0;
+}
+
 void World::set_connected(int slot, bool connected) {
   if (Cannon* cannon = find_cannon(slot)) {
     cannon->connected = connected;
@@ -223,7 +232,21 @@ void World::step_cannons(double dt) {
     const double reach = kCannonSpeed * dt;
     cannon.x += std::clamp(target - cannon.x, -reach, reach);
     cannon.bomb_cooldown = std::max(0.0, cannon.bomb_cooldown - dt);
+    if (cannon.phase_time > 0.0) {
+      cannon.phase_time = std::max(0.0, cannon.phase_time - dt);
+      if (cannon.phase_time <= 0.0) cannon.phase_cooldown = kPhaseCooldown;
+    } else {
+      cannon.phase_cooldown = std::max(0.0, cannon.phase_cooldown - dt);
+    }
     Tally& tally = tally_for(cannon.slot);
+
+    if (cannon.phase_requested) {
+      cannon.phase_requested = false;
+      if (cannon.phase_time <= 0.0 && cannon.phase_cooldown <= 0.0 && cannon.connected) {
+        cannon.phase_time = kPhaseSeconds;
+        emit({EventType::Phase, cannon.team, {cannon.x, y}, 0, cannon.slot});
+      }
+    }
 
     if (cannon.giant_requested) {
       cannon.giant_requested = false;
@@ -419,7 +442,7 @@ void World::apply_gate(std::size_t gate_index, Mob& mob, std::vector<Mob>& born)
       break;
     }
     case GateOp::Half: {
-      if (stats.halve_immune) return;
+      if (stats.halve_immune || (owner != nullptr && owner->phase_time > 0.0)) return;
       int lost = mob.hp / 2;
       if (mob.hp % 2 == 1 && rng_.chance(0.5)) ++lost;
       mob.hp -= lost;
@@ -464,6 +487,7 @@ void World::step_mobs(double dt) {
     const double dir = team_direction(mob.team);
     const Cannon* owner = mob.owner >= 0 ? cannon(mob.owner) : nullptr;
     const double speed = mob_speed(mob.kind) * (owner != nullptr ? owner->stats.speed_scale : 1.0);
+    const bool immune = owner != nullptr && owner->phase_time > 0.0;
     const double previous_y = mob.position.y;
     const double radius = mob_radius(mob);
     mob.position.y += dir * speed * dt;
@@ -489,10 +513,11 @@ void World::step_mobs(double dt) {
       const double dx = mob.position.x - sx;
       const double dy = mob.position.y - saw.y;
       const double reach = saw.radius + radius;
-      if (mob.saw_cooldown > 0.0 || dx * dx + dy * dy > reach * reach) continue;
-      mob.hp -= is_big(mob.kind) ? 2 : 1;
-      mob.saw_cooldown = 0.25;
-      mob.drift += dx >= 0.0 ? 3.0 : -3.0;
+      if (immune || mob.saw_cooldown > 0.0 || dx * dx + dy * dy > reach * reach) continue;
+      mob.hp -= 1;
+      mob.saw_cooldown = kSawCooldown;
+      // Thrown clear, so one blade does not grind through a whole squad.
+      mob.drift += dx >= 0.0 ? 6.0 : -6.0;
       emit({EventType::SawCut, mob.team, mob.position, 1, static_cast<int>(s)});
     }
     if (mob.hp <= 0) continue;

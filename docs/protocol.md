@@ -1,4 +1,4 @@
-# Wire protocol (version 2)
+# Wire protocol (version 3)
 
 One WebSocket per browser tab, at `GET /ws`. Text frames carry JSON objects,
 each with a type in `t`. Binary frames carry snapshots (server to client only).
@@ -36,6 +36,7 @@ Bump `kProtocolVersion` (`src/net/protocol.hpp`) and `PROTOCOL`
 | `start` | | host, lobby: start the match (versus fills an empty side with a bot) |
 | `in` | `x`, `f` | seated, in a match: cannon target x (world units) and whether firing |
 | `giant` | | launch a giant, if charged |
+| `phase` | | start Phase (this player's mobs ignore saws and "/2" gates for 5 s), if recharged |
 | `bomb` | `x`, `y` | throw a bomb at that world point, if off cooldown |
 | `pick` | `i` | upgrade phase: take card `i` of the offer |
 | `again` | | host, game over: back to the room lobby |
@@ -78,19 +79,20 @@ of a world unit.
 | flags (bit 0: frenzy) | u8 |
 | outcome (0 none, 1 Blue wins, 2 Red wins, 3 draw) | u8 |
 | bases, Blue then Red: hp, max hp | 2 x (i32, i32) |
-| cannon count, then each: slot u8, team u8, x coord, charge u8 (/255), bomb cooldown u8 (tenths of s), flags u8 (1 connected, 2 firing, 4 giant ready), mobs per volley u8 | u8 + n x 8 |
+| cannon count, then each: slot u8, team u8, x coord, charge u8 (/255), bomb cooldown u8 (tenths of s), flags u8 (1 connected, 2 firing, 4 giant ready, 8 phasing), mobs per volley u8, phase u8 (/255: while phasing the time left, else how far Phase has recharged; 255 is ready) | u8 + n x 9 |
 | gate count, then each gate's current x | u8 + n x coord |
 | saw count, then each saw's current x | u8 + n x coord |
 | bomb count, then each: team u8, from x, from y, target x, target y, radius (coords), fuse u8 (hundredths of s) | u8 + n x 12 |
 | power-up count, then each: id u32, x, y (coords), hp u16, max hp u16 | u8 + n x 12 |
 | event count, then each: type u8, team u8, index i16, x, y (coords), value i32 | u16 + n x 12 |
-| mob count, then each: id u32, x, y (coords), team and kind u8 (bit 0 team, bits 1-3 kind), hp u16 | u16 + n x 11 |
+| mob count, then each: id u32, x, y (coords), team and kind u8 (bit 0 team, bits 1-3 kind, bit 4 phased), hp u16 | u16 + n x 11 |
 
 Mob kinds: 0 grunt, 1 runner, 2 giant, 3 brute. Event types: 1 gate pass
 (value: mobs gained, negative for a "/2" cull; index: gate), 2 base hit (team:
 the base hit; value: damage), 3 bomb blast (value: mobs destroyed), 4 giant
 launch, 5 saw cut, 6 frenzy, 7 boss spawn, 8 power-up broken (index: the
-player slot that broke it; value: that player's new mobs per volley).
+player slot that broke it; value: that player's new mobs per volley), 9 phase
+(index: the player whose mobs started to phase).
 
 Power-up ids come from the same counter as mob ids, so the client can
 interpolate them by id the same way.

@@ -35,7 +35,9 @@ export class GameView {
       enemy: $('enemy-count'),
       giant: $('btn-giant'),
       bomb: $('btn-bomb'),
+      phase: $('btn-phase'),
       giantRing: $('btn-giant').querySelector('circle'),
+      phaseRing: $('btn-phase').querySelector('circle'),
       bombRing: $('btn-bomb').querySelector('circle'),
       banner: $('banner'),
       countdown: $('countdown'),
@@ -82,6 +84,7 @@ export class GameView {
     this.renderer.setFlipped(this.mySlot >= 0 && this.myTeam === 1);
     this.hud.giant.hidden = this.mySlot < 0;
     this.hud.bomb.hidden = this.mySlot < 0;
+    this.hud.phase.hidden = this.mySlot < 0;
   }
 
   setLevel(level) {
@@ -223,7 +226,7 @@ export class GameView {
       xs.set(m.xs);
       ys.set(m.ys);
     }
-    view.mobs = { count: m.count, ids: m.ids, xs, ys, teams: m.teams, kinds: m.kinds, hps: m.hps };
+    view.mobs = { count: m.count, ids: m.ids, xs, ys, teams: m.teams, kinds: m.kinds, hps: m.hps, phased: m.phased };
     return view;
   }
 
@@ -334,6 +337,13 @@ export class GameView {
         }
         break;
       }
+      case EventType.Phase: {
+        this.effects.ring(event.x, event.y, 3.2, '#a5f3fc', 0.6);
+        this.effects.ring(event.x, event.y, 1.8, '#ecfeff', 0.4);
+        if (event.index === this.mySlot) sfx.phase();
+        else this.effects.text(event.x, event.y + (event.team === 0 ? 2 : -2), '👻', '#ecfeff', 1.6, 1.0);
+        break;
+      }
       case EventType.BossSpawn:
         this.showBanner('BOSS!', `${event.value} hp`, '#fca5a5');
         this.shake = Math.max(this.shake, 14);
@@ -430,6 +440,11 @@ export class GameView {
         this.hud.bombRing.style.strokeDashoffset = String(RING * (1 - v / 100));
       });
       set('bombReady', cannon.bombCooldown <= 0, (v) => this.hud.bomb.classList.toggle('ready', v));
+      set('phase', Math.round(cannon.phase * 100), (v) => {
+        this.hud.phaseRing.style.strokeDashoffset = String(RING * (1 - v / 100));
+      });
+      set('phaseReady', !cannon.phasing && cannon.phase >= 0.999, (v) => this.hud.phase.classList.toggle('ready', v));
+      set('phasing', cannon.phasing, (v) => this.hud.phase.classList.toggle('active', v));
     }
   }
 
@@ -551,6 +566,7 @@ export class GameView {
       else if (key === 'arrowleft' || key === 'a') this.keys.add('left');
       else if (key === 'arrowright' || key === 'd') this.keys.add('right');
       else if (key === 'g' || key === 'e') this.launchGiant();
+      else if (key === 'f') this.startPhase();
       else if (key === 'b' || key === 'q') {
         if (this.bombArmed) this.throwBomb();
         else this.armBomb();
@@ -583,6 +599,7 @@ export class GameView {
       });
     };
     tap(this.hud?.giant ?? $('btn-giant'), () => this.launchGiant());
+    tap(this.hud?.phase ?? $('btn-phase'), () => this.startPhase());
     tap(this.hud?.bomb ?? $('btn-bomb'), () => {
       if (this.bombArmed) this.setBombArmed(false);
       else this.armBomb();
@@ -593,6 +610,12 @@ export class GameView {
     if (!this.canControl()) return;
     const cannon = this.prev.cannons.find((c) => c.slot === this.mySlot);
     if (cannon?.giantReady) this.send({ t: 'giant' });
+  }
+
+  startPhase() {
+    if (!this.canControl()) return;
+    const cannon = this.prev.cannons.find((c) => c.slot === this.mySlot);
+    if (cannon && !cannon.phasing && cannon.phase >= 0.999) this.send({ t: 'phase' });
   }
 
   setBombArmed(armed) {
