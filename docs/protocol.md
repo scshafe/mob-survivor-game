@@ -1,4 +1,4 @@
-# Wire protocol (version 4)
+# Wire protocol (version 5)
 
 One WebSocket per browser tab, at `GET /ws`. Text frames carry JSON objects,
 each with a type in `t`. Binary frames carry snapshots (server to client only).
@@ -52,7 +52,7 @@ Bump `kProtocolVersion` (`src/net/protocol.hpp`) and `PROTOCOL`
 | `rooms` | `rooms`: `[{code, mode, phase, seated, members, maxSeats, host, level?}]` |
 | `board` | `entries`: `[{names, levels, kills, when}]`, best first |
 | `room` | `code`, `mode`, `public`, `phase` (`lobby`\|`countdown`\|`playing`\|`upgrade`\|`over`), `host`, `you`, `maxSeats`, `members`: `[{id, name, team, bot, seated, slot, connected, host}]` |
-| `level` | `serial`, `level`, `mode`, `boss`, `field` `{w, h, baseDepth, cannonOffset, powerUpRadius, maxVolley}`, `timeLimit`, `frenzyAt`, `gates`: `[{x, y, w, op, v, teams, moving}]`, `saws`: `[{y, r}]` |
+| `level` | `serial`, `level`, `mode`, `boss`, `field` `{w, h, baseDepth, cannonOffset, powerUpRadius, maxVolley}`, `timeLimit`, `frenzyAt`, `gates`: `[{x, y, w, op, v, teams, moving}]` (`op`: `mul`, `add`, `half`, `fuse` (v: hit points per giant), `runner`, `armor`), `saws`: `[{y, r}]` |
 | `cards` | `cleared`, `picked`, `cards`: `[{key, title, text, taken}]` |
 | `picks` | `picked`: slots that have chosen |
 | `over` | `mode`, `outcome` (`blue`\|`red`\|`draw`), `levels`, `rank` (hall of fame place or -1), `players`: `[{slot, name, team, bot, shots, gateMobs, kills, baseDamage, giants, bombs}]` |
@@ -81,12 +81,12 @@ of a world unit.
 | bases, Blue then Red: hp, max hp | 2 x (i32, i32) |
 | team effects, Blue then Red: shield (damage the base still soaks up) i32, frozen u8 (tenths of s left), flipped u8 (tenths of s left) | 2 x (i32, u8, u8) |
 | cannon count, then each: slot u8, team u8, x coord, charge u8 (/255), bomb cooldown u8 (tenths of s), flags u8 (1 connected, 2 firing, 4 giant ready, 8 phasing, 16 magnet), mobs per volley u8, phase u8 (/255: while phasing the time left, else how far Phase has recharged; 255 is ready) | u8 + n x 9 |
-| gate count, then each gate's current x | u8 + n x coord |
+| gate count, then each: current x (coord), fuse fill for Blue u8, fuse fill for Red u8 (hit points a fuse gate has taken in toward its next giant; 0 for other gates) | u8 + n x 4 |
 | saw count, then each saw's current x | u8 + n x coord |
 | bomb count, then each: team u8, from x, from y, target x, target y, radius (coords), fuse u8 (hundredths of s) | u8 + n x 12 |
 | power-up count, then each: id u32, kind u8, x, y (coords), hp u16, max hp u16 | u8 + n x 13 |
 | event count, then each: type u8, team u8, index i16, x, y (coords), value i32 | u16 + n x 12 |
-| mob count, then each: id u32, x, y (coords), team and kind u8 (bit 0 team, bits 1-3 kind, bit 4 phased), hp u16 | u16 + n x 11 |
+| mob count, then each: id u32, x, y (coords), team and kind u8 (bit 0 team, bits 1-3 kind, bit 4 phased, bit 5 armored), hp u16 | u16 + n x 11 |
 
 Mob kinds: 0 grunt, 1 runner, 2 giant, 3 brute. Event types: 1 gate pass
 (value: mobs gained, negative for a "/2" cull; index: gate), 2 base hit (team:

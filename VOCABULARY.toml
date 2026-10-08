@@ -28,8 +28,9 @@ slug = "gate"
 title = "Gate"
 definition = """
 A bar across the lane that changes each mob of the teams it serves once, as it
-crosses: multiply (xN), add (+N) or halve (/2). Gates may slide; a gate serving
-both teams is drawn with a purple edge.
+crosses: multiply (xN), add (+N) or halve (/2), or change what mobs are: fuse
+them into giants, make them runners, or armor them. Gates may slide; a gate
+serving both teams is drawn with a purple edge.
 """
 refs = ["include/mob_survivor/level.hpp", "docs/design.md"]
 aliases = ["multiplier"]

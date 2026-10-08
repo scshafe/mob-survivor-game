@@ -91,7 +91,11 @@ export function decodeSnapshot(buffer) {
   }
 
   snap.gateX = [];
-  for (let n = u8(), i = 0; i < n; i++) snap.gateX.push(coord());
+  snap.fuseFill = [];
+  for (let n = u8(), i = 0; i < n; i++) {
+    snap.gateX.push(coord());
+    snap.fuseFill.push([u8(), u8()]);
+  }
   snap.sawX = [];
   for (let n = u8(), i = 0; i < n; i++) snap.sawX.push(coord());
 
@@ -126,6 +130,7 @@ export function decodeSnapshot(buffer) {
   const kinds = new Uint8Array(count);
   const hps = new Uint16Array(count);
   const phased = new Uint8Array(count);
+  const armored = new Uint8Array(count);
   for (let i = 0; i < count; i++) {
     ids[i] = u32();
     xs[i] = coord();
@@ -134,9 +139,10 @@ export function decodeSnapshot(buffer) {
     teams[i] = packed & 1;
     kinds[i] = (packed >> 1) & 7;
     phased[i] = (packed >> 4) & 1;
+    armored[i] = (packed >> 5) & 1;
     hps[i] = u16();
   }
-  snap.mobs = { count, ids, xs, ys, teams, kinds, hps, phased };
+  snap.mobs = { count, ids, xs, ys, teams, kinds, hps, phased, armored };
   snap.size = at;
   return snap;
 }

@@ -24,6 +24,14 @@ their own base at the bottom (Red's view is turned 180 degrees).
 - **Gates** (`xN`, `+N`, `/2`) change each mob once: `xN` turns a mob into N
   (a squad of h into N*h), `+N` adds N, `/2` culls half (a lone grunt has a
   50% chance). Gates can slide. Purple-edged gates serve both teams.
+- **Transforming gates** change what mobs are, not how many (from campaign
+  level 2, and in versus; at most one in a row of two or three gates, about
+  18% of those gates): **fuse** (`10→👑`) takes in grunts and runners and
+  turns every 10 hit points it has taken from a team into a giant of 12 (more
+  with Heavy Giants), keeping what is left over toward the next; **runner**
+  (`»RUN»`) turns grunts into runners (6.8 units a second instead of 4.6);
+  **armor** (`⛨`) lets each mob shrug off its next hit, whether an enemy mob,
+  a saw or a bomb (the enemy mob still takes its hit).
 - **The cap**: at most 300 mobs a team on the field; what a gate would add
   beyond that is lost. Giants and bosses ignore the cap.
 - **Giants**: firing charges a meter (45 volleys); a charged cannon launches
@@ -113,7 +121,8 @@ then the field).
   launch when you choose, and Phase to slip a crowd past the hazards.
 - Drifting power-ups (+1 shot, freeze, flip, shield, magnet) you have to hit
   to claim.
-- Sliding gates, `/2` gates, shared gates and saw blades.
+- Sliding gates, `/2` gates, shared gates, fuse, runner and armor gates, and
+  saw blades.
 - Boss levels, the versus Frenzy, emotes and a hall of fame.
 
 ## Balance
@@ -122,9 +131,9 @@ then the field).
 built-in bot (`src/core/bot.cpp`) plays the campaign and versus at a chosen
 skill, goes for power-ups when nothing threatens its base, and phases when a
 dozen of its mobs are about to meet a saw or a "/2" gate. At the numbers in
-the code, a skilled bot alone clears 4-14 campaign levels (about 8 on average
+the code, a skilled bot alone clears 4-13 campaign levels (about 8 on average
 over seeds 1-12); an idle player loses level 1 in about 30 s; bot-against-bot
-versus rounds last one to three minutes (about 110 s on average over seeds
-1-8). Saws deal about 330 damage a minute of campaign play, across both
+versus rounds last one to three minutes (about 115 s on average over seeds
+1-8). Saws deal about 320 damage a minute of campaign play, across both
 teams (680 before they were softened and Phase was added). `tests/match_test.cpp` keeps the
 broad shape (levels can be cleared, an idle player loses, versus ends).

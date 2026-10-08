@@ -17,6 +17,9 @@ const GATE_STYLE = {
   mul: { fill: 'rgba(56,189,248,0.30)', edge: '#38bdf8', text: '#e0f2fe' },
   add: { fill: 'rgba(74,222,128,0.30)', edge: '#4ade80', text: '#dcfce7' },
   half: { fill: 'rgba(244,63,94,0.32)', edge: '#fb7185', text: '#ffe4e6' },
+  fuse: { fill: 'rgba(250,204,21,0.30)', edge: '#facc15', text: '#fef9c3' },
+  runner: { fill: 'rgba(251,146,60,0.30)', edge: '#fb923c', text: '#ffedd5' },
+  armor: { fill: 'rgba(148,163,184,0.38)', edge: '#cbd5e1', text: '#f8fafc' },
 };
 const SHARED_EDGE = '#c084fc';
 // Power-up orbs by kind (PowerUpKind): gradient light and dark, and a glyph.
@@ -31,6 +34,9 @@ const ORB_STYLE = [
 export function gateLabel(gate, frenzy) {
   if (gate.op === 'mul') return `×${gate.v + (frenzy ? 1 : 0)}`;
   if (gate.op === 'add') return `+${gate.v + (frenzy ? Math.floor(gate.v / 2) : 0)}`;
+  if (gate.op === 'fuse') return `${gate.v}→👑`;
+  if (gate.op === 'runner') return '»RUN»';
+  if (gate.op === 'armor') return '⛨ ARMOR';
   return '÷2';
 }
 
@@ -331,11 +337,26 @@ export class Renderer {
       }
       const label = gateLabel(gate, view.frenzy) + (shared ? ' ⚔' : '');
       ctx.font = `900 ${fontSize}px system-ui, sans-serif`;
-      ctx.lineWidth = Math.max(2, fontSize * 0.18);
+      // Long labels shrink to fit their gate.
+      const room = width - s * 0.9;
+      const measured = ctx.measureText(label).width;
+      const size = measured > room ? Math.max(8, fontSize * (room / measured)) : fontSize;
+      ctx.font = `900 ${size}px system-ui, sans-serif`;
+      ctx.lineWidth = Math.max(2, size * 0.18);
       ctx.strokeStyle = 'rgba(0,0,0,0.55)';
       ctx.strokeText(label, left + width / 2, top + height / 2 + 1);
       ctx.fillStyle = style.text;
       ctx.fillText(label, left + width / 2, top + height / 2 + 1);
+      // A fuse gate fills toward its next giant, one bar per team.
+      if (gate.op === 'fuse') {
+        for (let team = 0; team < 2; team++) {
+          const fill = view.fuseFill?.[i]?.[team] ?? 0;
+          if (fill <= 0) continue;
+          const barY = top + height - s * 0.22 - team * s * 0.2;
+          ctx.fillStyle = TEAM[team].main;
+          ctx.fillRect(left + s * 0.3, barY, (width - s * 0.6) * Math.min(1, fill / Math.max(gate.v, 1)), s * 0.16);
+        }
+      }
       if (gate.moving) {
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.font = `700 ${fontSize * 0.55}px system-ui, sans-serif`;
@@ -477,6 +498,19 @@ export class Renderer {
         ctx.stroke();
       }
     }
+    // Armor: a steel ring.
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = Math.max(1.5, s * 0.1);
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      if (!m.armored?.[i] || m.kinds[i] >= MobKind.Giant) continue;
+      const r = mobRadius(m.kinds[i], m.hps[i]) * s + Math.max(1, s * 0.06);
+      const x = this.sx(m.xs[i]);
+      const y = this.sy(m.ys[i]);
+      ctx.moveTo(x + r, y);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+    }
+    ctx.stroke();
     // Eyes, looking the way each mob marches.
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();

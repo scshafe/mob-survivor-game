@@ -21,9 +21,13 @@ int roll_mul(Rng& rng, int level) {
 
 int roll_add(Rng& rng, int level) { return rng.range(2, 5) + std::min(level, 16) / 4; }
 
-GateOp roll_op(Rng& rng, bool allow_half) {
+GateOp roll_op(Rng& rng, bool allow_half, bool allow_special) {
   const double roll = rng.unit();
   if (allow_half && roll < 0.14) return GateOp::Half;
+  if (allow_special && roll > 0.82) {
+    const double which = rng.unit();
+    return which < 0.34 ? GateOp::Fuse : (which < 0.67 ? GateOp::Runner : GateOp::Armor);
+  }
   return roll < 0.57 ? GateOp::Mul : GateOp::Add;
 }
 
@@ -38,12 +42,20 @@ void fill_value(Gate& gate, Rng& rng, int level) {
     case GateOp::Half:
       gate.value = 2;
       break;
+    case GateOp::Fuse:
+      gate.value = 10;
+      break;
+    case GateOp::Runner:
+    case GateOp::Armor:
+      gate.value = 1;  // unused
+      break;
   }
 }
 
 // One row of gates on the line y. A row is either one sliding gate, one wide
-// gate, or two or three gates side by side; at most one of them is a "/2".
-void add_row(std::vector<Gate>& gates, double y, int level, bool allow_moving, bool allow_half,
+// gate, or two or three gates side by side; at most one of them is a "/2" and
+// at most one changes what mobs are (fuse, runner, armor).
+void add_row(std::vector<Gate>& gates, double y, int level, bool allow_moving, bool allow_half, bool allow_special,
              std::uint8_t teams, Rng& rng) {
   const int count = level <= 1 ? 2 : rng.range(1, 3);
   if (count == 1) {
@@ -68,14 +80,16 @@ void add_row(std::vector<Gate>& gates, double y, int level, bool allow_moving, b
   }
   const double slot = kFieldWidth / count;
   bool half_used = !allow_half;
+  bool special_used = !allow_special;
   for (int i = 0; i < count; ++i) {
     Gate gate;
     gate.y = y;
     gate.teams = teams;
     gate.width = std::clamp(slot - 1.2, 3.5, 7.0);
     gate.x = slot * (i + 0.5);
-    gate.op = roll_op(rng, !half_used);
+    gate.op = roll_op(rng, !half_used, !special_used);
     if (gate.op == GateOp::Half) half_used = true;
+    if (gate.op == GateOp::Fuse || gate.op == GateOp::Runner || gate.op == GateOp::Armor) special_used = true;
     fill_value(gate, rng, level);
     gates.push_back(gate);
   }
@@ -121,7 +135,7 @@ LevelSpec make_campaign_level(int number, int players, std::uint64_t seed) {
     const std::uint8_t teams =
         r == shared_row ? static_cast<std::uint8_t>(team_bit(Team::Blue) | team_bit(Team::Red))
                         : team_bit(Team::Blue);
-    add_row(level.gates, y, number, number >= 2, number >= 3 && r != shared_row, teams, rng);
+    add_row(level.gates, y, number, number >= 2, number >= 3 && r != shared_row, number >= 2, teams, rng);
   }
 
   const int saws = number >= 3 ? 1 + (number >= 8 ? 1 : 0) + (number >= 15 ? 1 : 0) : 0;
@@ -189,8 +203,8 @@ LevelSpec make_versus_level(std::uint64_t seed) {
 
   const auto both = static_cast<std::uint8_t>(team_bit(Team::Blue) | team_bit(Team::Red));
   std::vector<Gate> half;
-  add_row(half, rng.uniform(9.5, 11.5), 3, true, true, both, rng);
-  add_row(half, rng.uniform(15.0, 17.0), 3, true, true, both, rng);
+  add_row(half, rng.uniform(9.5, 11.5), 3, true, true, true, both, rng);
+  add_row(half, rng.uniform(15.0, 17.0), 3, true, true, true, both, rng);
   for (const Gate& gate : half) {
     level.gates.push_back(gate);
     // The point mirror through the field's centre: Red meets the same gates

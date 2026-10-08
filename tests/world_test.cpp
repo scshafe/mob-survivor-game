@@ -421,6 +421,67 @@ void phase_runs_out_then_recharges() {
   CHECK(world.cannon(0)->phase_time > 0.0);
 }
 
+Gate wide_gate(GateOp op, int value = 0) {
+  Gate gate;
+  gate.x = 12.0;
+  gate.y = 20.0;
+  gate.width = kFieldWidth;
+  gate.op = op;
+  gate.value = value;
+  return gate;
+}
+
+void a_fuse_gate_merges_mobs_into_giants() {
+  World world(bare({wide_gate(GateOp::Fuse, 10)}));
+  world.spawn(owned_grunt(6.0, 19.9, 7));
+  world.step(kTickSeconds);
+  CHECK(world.mobs().empty());
+  CHECK(world.fuse_fill(0, Team::Blue) == 7);
+  world.spawn(owned_grunt(16.0, 19.9, 5));
+  world.step(kTickSeconds);
+  CHECK(world.mobs().size() == 1);
+  const Mob& giant = world.mobs().front();
+  CHECK(giant.kind == MobKind::Giant && giant.owner == 0 && giant.hp == fused_giant_hp(10));
+  CHECK(world.fuse_fill(0, Team::Blue) == 2);
+  CHECK(world.fuse_fill(0, Team::Red) == 0);
+  const auto events = world.take_events();
+  CHECK(std::any_of(events.begin(), events.end(), [](const Event& e) { return e.type == EventType::GiantLaunch; }));
+}
+
+void a_runner_gate_makes_runners() {
+  World world(bare({wide_gate(GateOp::Runner)}));
+  world.spawn(owned_grunt(6.0, 19.9, 4));
+  world.step(kTickSeconds);
+  CHECK(world.mobs().front().kind == MobKind::Runner && world.mobs().front().hp == 4);
+  const double y = world.mobs().front().position.y;
+  world.step(1.0);
+  CHECK_NEAR(world.mobs().front().position.y - y, mob_speed(MobKind::Runner), 1e-9);
+}
+
+void armor_turns_away_one_hit() {
+  World armored_world(bare({wide_gate(GateOp::Armor)}));
+  armored_world.spawn(owned_grunt(6.0, 19.9, 3));
+  armored_world.step(kTickSeconds);
+  CHECK(armored_world.mobs().front().armored);
+  const Vec2 at = armored_world.mobs().front().position;
+  armored_world.spawn(grunt(Team::Red, at.x, at.y + 0.3, 2));
+  armored_world.step(kTickSeconds);
+  CHECK(blue_hp(armored_world) == 3);  // the hit was turned away; the enemy still lost 2
+  CHECK(!armored_world.mobs().front().armored);
+  CHECK(armored_world.mobs().size() == 1);
+}
+
+void armor_turns_away_a_saw_cut() {
+  WorldConfig config = hazards();
+  config.level.gates = {wide_gate(GateOp::Armor)};
+  config.level.gates.front().y = 18.0;
+  World world(std::move(config));
+  world.spawn(owned_grunt(12.0, 17.9, 3));
+  for (int i = 0; i < 30; ++i) world.step(kTickSeconds);
+  CHECK(blue_hp(world) == 3);
+  CHECK(!world.mobs().front().armored);
+}
+
 void stepping_is_deterministic() {
   auto run = [] {
     WorldConfig config;
@@ -511,5 +572,9 @@ int main() {
   a_flip_turns_the_enemys_gates_into_halving_ones();
   a_shield_soaks_up_base_damage();
   a_magnet_pulls_mobs_toward_the_gate_ahead();
+  a_fuse_gate_merges_mobs_into_giants();
+  a_runner_gate_makes_runners();
+  armor_turns_away_one_hit();
+  armor_turns_away_a_saw_cut();
   return check::finish("world_test");
 }

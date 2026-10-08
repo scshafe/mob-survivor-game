@@ -17,6 +17,12 @@ double gate_score(const Gate& gate) {
       return gate.value * 1.0;
     case GateOp::Half:
       return -8.0;
+    case GateOp::Fuse:
+      return 9.0;
+    case GateOp::Armor:
+      return 8.0;
+    case GateOp::Runner:
+      return 5.0;
   }
   return 0.0;
 }

@@ -29,6 +29,7 @@ struct Mob {
   double drift = 0.0;  // sideways velocity from crowding
   int hp = 1;          // a grunt with hp > 1 is a squad of that many
   std::uint32_t gates_passed = 0;  // bit i: gate i already changed this mob
+  bool armored = false;            // its next hit (enemy, saw or bomb) does no harm
   double saw_cooldown = 0.0;
 };
 
@@ -184,6 +185,8 @@ class World {
   [[nodiscard]] const std::vector<PowerUp>& powerups() const { return powerups_; }
   [[nodiscard]] const TeamEffects& effects(Team team) const { return effects_.at(team_index(team)); }
   [[nodiscard]] double gate_x(std::size_t index) const;
+  // How far fuse gate `index` has filled toward its next giant for `team`.
+  [[nodiscard]] int fuse_fill(std::size_t index, Team team) const;
   [[nodiscard]] double saw_x(std::size_t index) const;
   [[nodiscard]] std::uint64_t ticks() const { return ticks_; }
   [[nodiscard]] double elapsed() const { return elapsed_; }
@@ -239,6 +242,8 @@ class World {
 
   // Gate effects collected during one step, emitted as one event per gate.
   std::vector<int> gate_gain_;
+  // Hit points each fuse gate has taken in toward its next giant, per team.
+  std::vector<int> fuse_fill_;
 
   // Scratch space for the contact grid, kept to avoid reallocating.
   std::vector<int> cell_of_;
