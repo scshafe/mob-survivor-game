@@ -394,6 +394,18 @@ export class Renderer {
       ctx.ellipse(x, y, r, r * 0.55, 0, 0, Math.PI * 2);
     }
     ctx.fill();
+    // Phasing mobs shimmer: a pale aura under the body.
+    ctx.fillStyle = 'rgba(165,243,252,0.45)';
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      if (!m.phased[i]) continue;
+      const r = mobRadius(m.kinds[i], m.hps[i]) * s * 1.55;
+      const x = this.sx(m.xs[i]);
+      const y = this.sy(m.ys[i]);
+      ctx.moveTo(x + r, y);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+    }
+    ctx.fill();
     // Bodies, one path per team and kind.
     for (let team = 0; team < 2; team++) {
       for (const kind of [MobKind.Grunt, MobKind.Runner]) {
@@ -543,6 +555,12 @@ export class Renderer {
       const up = this.screenUp(cannon.team);
       const color = frame.colorOf(cannon.slot, cannon.team);
       ctx.globalAlpha = cannon.connected ? 1 : 0.45;
+      if (cannon.phasing) {
+        ctx.fillStyle = `rgba(165,243,252,${0.3 + 0.15 * Math.sin(frame.time * 10)})`;
+        ctx.beginPath();
+        ctx.arc(x, y, s * 2.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
       if (mine) {
         ctx.fillStyle = 'rgba(255,255,255,0.18)';
         ctx.beginPath();

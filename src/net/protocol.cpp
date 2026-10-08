@@ -113,9 +113,14 @@ std::string encode_snapshot(const Match& match, const std::vector<Event>& events
     out.coord(cannon.x);
     out.u8(static_cast<unsigned>(std::lround(std::clamp(cannon.charge, 0.0, 1.0) * 255.0)));
     out.u8(static_cast<unsigned>(std::lround(std::clamp(cannon.bomb_cooldown, 0.0, 25.5) * 10.0)));
-    const unsigned flags = (cannon.connected ? 1U : 0U) | (cannon.firing ? 2U : 0U) | (cannon.charge >= 1.0 ? 4U : 0U);
+    const bool phasing = cannon.phase_time > 0.0;
+    const unsigned flags = (cannon.connected ? 1U : 0U) | (cannon.firing ? 2U : 0U) | (cannon.charge >= 1.0 ? 4U : 0U) |
+                           (phasing ? 8U : 0U);
     out.u8(flags);
     out.u8(static_cast<unsigned>(std::clamp(cannon.shots_per_volley, 0, 255)));
+    // While phasing: the time left; otherwise how far it has recharged.
+    const double meter = phasing ? cannon.phase_time / kPhaseSeconds : 1.0 - cannon.phase_cooldown / kPhaseCooldown;
+    out.u8(static_cast<unsigned>(std::lround(std::clamp(meter, 0.0, 1.0) * 255.0)));
   }
 
   const auto& gates = world.level().gates;
@@ -170,7 +175,8 @@ std::string encode_snapshot(const Match& match, const std::vector<Event>& events
     out.u32(mob.id);
     out.coord(mob.position.x);
     out.coord(mob.position.y);
-    out.u8(static_cast<unsigned>(team_index(mob.team)) | (static_cast<unsigned>(mob.kind) << 1U));
+    out.u8(static_cast<unsigned>(team_index(mob.team)) | (static_cast<unsigned>(mob.kind) << 1U) |
+           (world.phased(mob) ? 16U : 0U));
     out.u16(static_cast<unsigned>(std::clamp(mob.hp, 0, 65535)));
   }
   return out.take();

@@ -3,6 +3,7 @@
 //
 // usage: snapshot_fixture <output-dir>   (writes snapshot.bin and expected.json)
 
+#include <algorithm>
 #include <cstdio>
 #include <fstream>
 #include <string>
@@ -20,7 +21,14 @@ int main(int argc, char** argv) {
   }
   const std::string dir = argv[1];
   Match match(Mode::Versus, 21, {{0, Team::Blue, true}, {1, Team::Red, true}});
-  for (int i = 0; i < 30 * 25; ++i) match.step(kTickSeconds);
+  // Play on until the snapshot has a power-up and phasing mobs in it, so the
+  // decoder test sees every part of the layout.
+  auto interesting = [](const World& world) {
+    return !world.powerups().empty() &&
+           std::any_of(world.mobs().begin(), world.mobs().end(), [&](const Mob& mob) { return world.phased(mob); });
+  };
+  for (int i = 0; i < 30 * 20; ++i) match.step(kTickSeconds);
+  for (int i = 0; i < 30 * 120 && !interesting(match.world()); ++i) match.step(kTickSeconds);
   const auto events = match.take_events();
   const std::string bytes = net::encode_snapshot(match, events);
 
@@ -44,6 +52,11 @@ int main(int argc, char** argv) {
     w.end_object();
   }
   w.field("volley", world.cannons().front().shots_per_volley);
+  int phasing = 0;
+  for (const Cannon& cannon : world.cannons()) phasing += cannon.phase_time > 0.0 ? 1 : 0;
+  w.field("phasingCannons", phasing);
+  w.field("phasedMobs", static_cast<int>(std::count_if(world.mobs().begin(), world.mobs().end(),
+                                                       [&](const Mob& mob) { return world.phased(mob); })));
   w.field("mobs", static_cast<int>(world.mobs().size()));
   if (!world.mobs().empty()) {
     const Mob& last = world.mobs().back();

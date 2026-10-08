@@ -54,6 +54,30 @@ std::optional<double> powerup_aim(const World& world, const Cannon& cannon) {
   return best;
 }
 
+// How many of this player's mobs are within a few units of running into a
+// saw blade or a "/2" gate that would hurt them.
+int mobs_near_hazards(const World& world, const Cannon& cannon) {
+  const double dir = team_direction(cannon.team);
+  int count = 0;
+  for (const Mob& mob : world.mobs()) {
+    if (mob.owner != cannon.slot || mob.hp <= 0) continue;
+    bool near = false;
+    for (std::size_t s = 0; s < world.level().saws.size() && !near; ++s) {
+      const double ahead = (world.level().saws[s].y - mob.position.y) * dir;
+      near = ahead > 0.0 && ahead < 4.0;
+    }
+    const auto& gates = world.level().gates;
+    for (std::size_t g = 0; g < gates.size() && !near; ++g) {
+      const Gate& gate = gates[g];
+      if (gate.op != GateOp::Half || (gate.teams & team_bit(cannon.team)) == 0) continue;
+      const double ahead = (gate.y - mob.position.y) * dir;
+      near = ahead > 0.0 && ahead < 4.0 && std::fabs(mob.position.x - world.gate_x(g)) < gate.width / 2.0 + 0.5;
+    }
+    if (near) count += mob.hp;
+  }
+  return count;
+}
+
 }  // namespace
 
 BotCommand bot_think(const World& world, int slot, double skill, double dt, BotState& state, Rng& rng) {
@@ -101,6 +125,7 @@ BotCommand bot_think(const World& world, int slot, double skill, double dt, BotS
   command.target_x = std::clamp(state.aim, 0.5, kFieldWidth - 0.5);
   command.firing = true;
   command.giant = cannon->charge >= 1.0;
+  command.phase = cannon->phase_time <= 0.0 && cannon->phase_cooldown <= 0.0 && mobs_near_hazards(world, *cannon) >= 12;
 
   if (cannon->bomb_cooldown <= 0.0) {
     if (const Mob* threat = nearest_threat(world, team, 14.0)) {

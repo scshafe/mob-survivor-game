@@ -575,6 +575,19 @@ input:focus {
   stroke-dashoffset: 119.4;
   transition: stroke-dashoffset 0.1s linear;
 }
+.ability.phase .ring circle {
+  stroke: #67e8f9;
+}
+.ability.phase.ready {
+  background: radial-gradient(circle at 35% 30%, #a5f3fc, #0e7490);
+  animation: none;
+}
+.ability.phase.active {
+  background: radial-gradient(circle at 35% 30%, #ecfeff, #22d3ee);
+  outline: 4px solid #67e8f9;
+  outline-offset: 3px;
+  animation: pulse 0.6s ease-in-out infinite;
+}
 .ability.bomb .ring circle {
   stroke: #fb923c;
 }
@@ -846,6 +859,20 @@ input:focus {
 
 /* Narrow phones: keep the scoreboard to the columns that matter. */
 @media (max-width: 520px) {
+  .hud-bottom {
+    gap: 8px;
+  }
+  .ability {
+    width: 72px;
+    height: 72px;
+  }
+  .army {
+    min-width: 56px;
+    padding: 6px 8px;
+  }
+  .army small {
+    white-space: nowrap;
+  }
   .stats .opt {
     display: none;
   }

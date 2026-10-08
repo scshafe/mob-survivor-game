@@ -29,7 +29,14 @@ their own base at the bottom (Red's view is turned 180 degrees).
 - **Giants**: firing charges a meter (45 volleys); a charged cannon launches
   a giant (15 hp, tramples squads). **Bombs**: thrown at any point, land after
   0.8 s, deal 6 to every enemy mob within 2.6 units; 13 s cooldown.
-- **Saw blades** slide along a rail and cut any mob they touch, either team.
+- **Saw blades** slide along a rail and cut any mob they touch, either team:
+  1 hit point (giants and brutes too), then the mob is thrown aside and is safe
+  from saws for 0.8 s, so a blade nicks a squad instead of grinding through it.
+  Campaign levels have one saw from level 3, two from 8, three from 15.
+- **Phase**: a rechargeable power. For 5 s a player's mobs (on the field and
+  newly fired) ignore the map, meaning saw blades and "/2" gates, but still
+  fight enemy mobs, take bomb damage and hit the base as usual. It recharges
+  for 20 s after it ends, and starts each level ready.
 - **Power-ups**: a gold "+1" orb drifts in from one side wall and out by the
   other (1.4-2.4 units a second). A player's grunts and runners that run into
   it are spent on it, one hit point for one; the player whose mob breaks it
@@ -47,6 +54,7 @@ then the field).
 
 - `A`/`D` or the arrows slide the cannon; hold `Space` to fire.
 - `G` (or `E`) launches a charged giant.
+- `F` starts Phase.
 - `B` (or `Q`) shows the bomb aimer on the nearest enemy group; `B` again or
   `Enter` throws it (once the bomb is off cooldown), `Esc` puts it away. The
   aimer moves vim-style, in screen directions: `h` `j` `k` `l` one unit, a
@@ -68,7 +76,7 @@ then the field).
   sprinters, fortify). Some stack. No card adds mobs to a volley or to a
   gate: extra mobs a volley come only from power-ups, within a level.
 - **Versus** (1v1 or 2v2, bots fill empty seats): a point-symmetric arena,
-  so both sides meet the same gates in the same order. Bases have 4000 health
+  so both sides meet the same gates in the same order. Bases have 4600 health
   (+2000 per extra player on the larger side). At 2:30 the **Frenzy** makes
   every gate stronger (`xN` +1, `+N` half again); at 4:00 the healthier base
   wins.
@@ -77,8 +85,8 @@ then the field).
 
 - Co-op campaign and live versus, in the browser, with drop-in rejoin.
 - Roguelite upgrade cards between levels.
-- Bombs you aim yourself (with a vim-style keyboard aimer), and giants you
-  launch when you choose.
+- Bombs you aim yourself (with a vim-style keyboard aimer), giants you
+  launch when you choose, and Phase to slip a crowd past the hazards.
 - Drifting "+1 shot" power-ups you have to hit to claim.
 - Sliding gates, `/2` gates, shared gates and saw blades.
 - Boss levels, the versus Frenzy, emotes and a hall of fame.
@@ -87,9 +95,11 @@ then the field).
 
 `World` and `Match` are deterministic, so balance can be measured headless: the
 built-in bot (`src/core/bot.cpp`) plays the campaign and versus at a chosen
-skill, and goes for power-ups when nothing threatens its base. At the numbers
-in the code, a skilled bot alone clears 4-14 campaign levels (about 8 on
-average over seeds 1-12); an idle player loses level 1 in about 30 s;
-bot-against-bot versus rounds last one to three minutes (about 110 s on
-average over seeds 1-8). `tests/match_test.cpp` keeps the
+skill, goes for power-ups when nothing threatens its base, and phases when a
+dozen of its mobs are about to meet a saw or a "/2" gate. At the numbers in
+the code, a skilled bot alone clears 4-15 campaign levels (about 9 on average
+over seeds 1-12); an idle player loses level 1 in about 30 s; bot-against-bot
+versus rounds last one to three minutes (about 100 s on average over seeds
+1-8). Saws deal about 390 damage a minute of campaign play, across both
+teams (680 before they were softened and Phase was added). `tests/match_test.cpp` keeps the
 broad shape (levels can be cleared, an idle player loses, versus ends).

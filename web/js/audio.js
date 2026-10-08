@@ -122,6 +122,11 @@ export const sfx = {
     tone({ type: 'sawtooth', from: 70, to: 140, duration: 0.5, volume: 0.18 });
     tone({ type: 'square', from: 140, to: 280, duration: 0.4, volume: 0.06, delay: 0.05 });
   },
+  phase() {
+    if (!throttle('phase', 0.3)) return;
+    tone({ type: 'sine', from: 300, to: 1200, duration: 0.45, volume: 0.1 });
+    tone({ type: 'sine', from: 450, to: 1800, duration: 0.45, volume: 0.05, delay: 0.04 });
+  },
   powerUp() {
     if (!throttle('powerUp', 0.3)) return;
     tone({ type: 'triangle', from: 660, to: 660, duration: 0.1, volume: 0.12 });

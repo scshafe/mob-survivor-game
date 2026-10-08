@@ -19,6 +19,7 @@ void play(Match& match, std::vector<BotState>& brains, Rng& rng, double seconds,
         match.set_input(slot, command.target_x, command.firing);
         if (command.giant) match.request_giant(slot);
         if (command.bomb) match.request_bomb(slot, *command.bomb);
+        if (command.phase) match.request_phase(slot);
       }
     }
     match.step(kTickSeconds);

@@ -270,6 +270,76 @@ void volley_bonuses_stop_at_the_cap() {
   CHECK(world.cannon(0)->shots_per_volley == kMaxShotsPerVolley);
 }
 
+// A fixed saw on the line y = 20 and a "/2" gate across the lane at y = 26.
+WorldConfig hazards() {
+  Gate half;
+  half.x = 12.0;
+  half.y = 26.0;
+  half.width = kFieldWidth;
+  half.op = GateOp::Half;
+  WorldConfig config = bare({half});
+  Saw saw;
+  saw.x = 12.0;
+  saw.y = 20.0;
+  saw.radius = 0.9;
+  config.level.saws.push_back(saw);
+  return config;
+}
+
+int blue_hp(const World& world) {
+  int hp = 0;
+  for (const Mob& mob : world.mobs()) hp += mob.team == Team::Blue ? mob.hp : 0;
+  return hp;
+}
+
+void saws_cut_a_squad_once_and_throw_it_clear() {
+  World world(hazards());
+  world.spawn(owned_grunt(12.0, 18.5, 9));
+  for (int i = 0; i < 30; ++i) world.step(kTickSeconds);
+  CHECK(blue_hp(world) == 8);
+  CHECK(std::fabs(world.mobs().front().position.x - 12.0) > 1.0);
+}
+
+void phase_lets_mobs_ignore_saws_and_halving_gates() {
+  World plain(hazards());
+  plain.spawn(owned_grunt(12.0, 18.5, 8));
+  for (int i = 0; i < 2 * 30; ++i) plain.step(kTickSeconds);
+  CHECK(blue_hp(plain) < 8);
+
+  World world(hazards());
+  world.spawn(owned_grunt(12.0, 18.5, 8));
+  world.request_phase(0);
+  world.step(kTickSeconds);
+  const auto events = world.take_events();
+  CHECK(std::any_of(events.begin(), events.end(), [](const Event& e) { return e.type == EventType::Phase && e.index == 0; }));
+  CHECK(world.phased(world.mobs().front()));
+  for (int i = 0; i < 2 * 30; ++i) world.step(kTickSeconds);
+  CHECK(blue_hp(world) == 8);
+  CHECK(world.mobs().front().position.y > 26.0);  // through the saw and the gate, whole
+
+  // Phased mobs still fight.
+  world.spawn(grunt(Team::Red, world.mobs().front().position.x, world.mobs().front().position.y + 0.3, 3));
+  world.step(kTickSeconds);
+  CHECK(blue_hp(world) == 5);
+}
+
+void phase_runs_out_then_recharges() {
+  World world(bare());
+  world.request_phase(0);
+  world.step(kTickSeconds);
+  CHECK(world.cannon(0)->phase_time > 0.0);
+  for (int i = 0; i < static_cast<int>(kPhaseSeconds * 30) + 1; ++i) world.step(kTickSeconds);
+  CHECK(world.cannon(0)->phase_time == 0.0);
+  CHECK(world.cannon(0)->phase_cooldown > kPhaseCooldown - 0.1);
+  world.request_phase(0);  // not yet
+  world.step(kTickSeconds);
+  CHECK(world.cannon(0)->phase_time == 0.0);
+  for (int i = 0; i < static_cast<int>(kPhaseCooldown * 30) + 1; ++i) world.step(kTickSeconds);
+  world.request_phase(0);
+  world.step(kTickSeconds);
+  CHECK(world.cannon(0)->phase_time > 0.0);
+}
+
 void stepping_is_deterministic() {
   auto run = [] {
     WorldConfig config;
@@ -353,5 +423,8 @@ int main() {
   power_ups_drift_across_and_out();
   breaking_a_power_up_adds_a_shot_to_every_volley();
   volley_bonuses_stop_at_the_cap();
+  saws_cut_a_squad_once_and_throw_it_clear();
+  phase_lets_mobs_ignore_saws_and_halving_gates();
+  phase_runs_out_then_recharges();
   return check::finish("world_test");
 }
