@@ -27,6 +27,7 @@ add_library(mob_survivor_core
   src/core/bot.cpp
   src/core/level.cpp
   src/core/match.cpp
+  src/core/replay.cpp
   src/core/upgrades.cpp
   src/core/world.cpp
 )
@@ -37,11 +38,13 @@ mob_survivor_configure_target(mob_survivor_core)
 # WebSocket framing, JSON, the wire protocol and the rooms. Tested headless.
 add_library(mob_survivor_net
   src/net/base64.cpp
+  src/net/daily.cpp
   src/net/http.cpp
   src/net/json.cpp
   src/net/leaderboard.cpp
   src/net/lobby.cpp
   src/net/protocol.cpp
+  src/net/replay_file.cpp
   src/net/sha1.cpp
   src/net/websocket.cpp
 )
@@ -55,7 +58,7 @@ target_link_libraries(mob-survivor-server PRIVATE mob_survivor_net)
 mob_survivor_configure_target(mob-survivor-server)
 
 if(BUILD_TESTING)
-  foreach(test_name world_test match_test net_test lobby_test)
+  foreach(test_name world_test match_test replay_test net_test lobby_test)
     add_executable(${test_name} tests/${test_name}.cpp)
     target_link_libraries(${test_name} PRIVATE mob_survivor_net)
     mob_survivor_configure_target(${test_name})

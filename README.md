@@ -9,6 +9,8 @@ the horde, or against each other.
   with an upgrade card for every player between levels and a boss every fifth
   level. Best runs go to the hall of fame.
 - **Versus**: 1v1 or 2v2 on a mirrored arena; bots fill empty seats.
+- **Daily challenge**: the same levels for everyone each day, a daily board,
+  replays of the best runs, and a ghost of the day's best to race.
 - Extras: bombs aimed from the keyboard (vim-style), chargeable giants,
   drifting power-ups you have to hit (+1 shot, freeze, flip, shield,
   magnet), named layouts (hourglass, twin lanes, conveyor belts,

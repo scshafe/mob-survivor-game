@@ -3,6 +3,8 @@
 #include <vector>
 
 #include "check.hpp"
+#include "mob_survivor/replay.hpp"
+#include "net/daily.hpp"
 #include "net/json.hpp"
 #include "net/leaderboard.hpp"
 #include "net/lobby.hpp"
@@ -56,7 +58,8 @@ std::string code_of(const Recorder& recorder, ClientId client) {
 void a_client_is_welcomed() {
   Recorder out;
   Leaderboard board;
-  Lobby lobby(out, board, 1);
+  DailyBoard daily;
+  Lobby lobby(out, board, daily, 1);
   lobby.connect(1, "Ada Lovelace");
   const auto welcome = out.last(1, "welcome");
   CHECK(welcome && welcome->get_string("name") == "Ada Lovelace" && welcome->get_string("token").size() == 32);
@@ -71,7 +74,8 @@ void a_client_is_welcomed() {
 void solo_play_starts_at_once_and_streams_snapshots() {
   Recorder out;
   Leaderboard board;
-  Lobby lobby(out, board, 2);
+  DailyBoard daily;
+  Lobby lobby(out, board, daily, 2);
   lobby.connect(1, "Solo");
   lobby.message(1, R"({"t":"create","mode":"campaign","public":false,"start":true})");
   const auto room = out.last(1, "room");
@@ -89,7 +93,8 @@ void solo_play_starts_at_once_and_streams_snapshots() {
 void friends_join_by_code_and_the_host_starts() {
   Recorder out;
   Leaderboard board;
-  Lobby lobby(out, board, 3);
+  DailyBoard daily;
+  Lobby lobby(out, board, daily, 3);
   lobby.connect(1, "Host");
   lobby.connect(2, "Friend");
   lobby.message(1, R"({"t":"create","mode":"campaign"})");
@@ -118,7 +123,8 @@ void friends_join_by_code_and_the_host_starts() {
 void versus_fills_empty_teams_with_bots() {
   Recorder out;
   Leaderboard board;
-  Lobby lobby(out, board, 4);
+  DailyBoard daily;
+  Lobby lobby(out, board, daily, 4);
   lobby.connect(1, "Blue");
   lobby.message(1, R"({"t":"create","mode":"versus"})");
   lobby.message(1, R"({"t":"start"})");
@@ -135,7 +141,8 @@ void versus_fills_empty_teams_with_bots() {
 void teams_hold_at_most_two() {
   Recorder out;
   Leaderboard board;
-  Lobby lobby(out, board, 5);
+  DailyBoard daily;
+  Lobby lobby(out, board, daily, 5);
   lobby.connect(1, "A");
   lobby.message(1, R"({"t":"create","mode":"versus"})");
   const std::string code = code_of(out, 1);
@@ -167,7 +174,8 @@ void teams_hold_at_most_two() {
 void a_dropped_player_can_rejoin_with_their_token() {
   Recorder out;
   Leaderboard board;
-  Lobby lobby(out, board, 6);
+  DailyBoard daily;
+  Lobby lobby(out, board, daily, 6);
   lobby.connect(1, "Host");
   lobby.connect(2, "Wobbly");
   lobby.message(1, R"({"t":"create","mode":"campaign"})");
@@ -192,7 +200,8 @@ void a_dropped_player_can_rejoin_with_their_token() {
 void the_host_role_moves_on_and_empty_rooms_close() {
   Recorder out;
   Leaderboard board;
-  Lobby lobby(out, board, 7);
+  DailyBoard daily;
+  Lobby lobby(out, board, daily, 7);
   lobby.connect(1, "First");
   lobby.connect(2, "Second");
   lobby.message(1, R"({"t":"create","mode":"campaign"})");
@@ -207,7 +216,8 @@ void the_host_role_moves_on_and_empty_rooms_close() {
 void a_lost_campaign_reaches_the_leaderboard() {
   Recorder out;
   Leaderboard board;
-  Lobby lobby(out, board, 8);
+  DailyBoard daily;
+  Lobby lobby(out, board, daily, 8);
   lobby.set_clock(1700000000.0);
   lobby.connect(1, "Idle");
   lobby.message(1, R"({"t":"create","mode":"campaign","start":true})");
@@ -220,13 +230,84 @@ void a_lost_campaign_reaches_the_leaderboard() {
 void floods_are_dropped() {
   Recorder out;
   Leaderboard board;
-  Lobby lobby(out, board, 9);
+  DailyBoard daily;
+  Lobby lobby(out, board, daily, 9);
   lobby.connect(1, "Spam");
   for (int i = 0; i < 500; ++i) lobby.message(1, R"({"t":"ping","n":1})");
   CHECK(out.count(1, "pong") == 120);
   run(lobby, 1.0);
   lobby.message(1, R"({"t":"ping","n":2})");
   CHECK(out.last(1, "pong")->get_number("n") == 2);
+}
+
+// Plays a daily run as `client` until it is over: fire for a while at a few
+// spots, then stand idle until the base falls. Returns the "over" message.
+JsonValue play_daily(Lobby& lobby, Recorder& out, ClientId client) {
+  const std::size_t overs = out.count(client, "over");
+  lobby.message(client, R"({"t":"daily"})");
+  run(lobby, kCountdownSeconds + 0.2);
+  for (int i = 0; i < 240; ++i) {
+    const double x = 6.0 + (i % 4) * 4.0;
+    lobby.message(client, R"({"t":"in","x":)" + std::to_string(x) + R"(,"f":true})");
+    run(lobby, 0.25);
+  }
+  lobby.message(client, R"({"t":"in","x":12,"f":false})");
+  for (int i = 0; i < 600 && out.count(client, "over") == overs; ++i) run(lobby, 1.0);
+  CHECK(out.count(client, "over") > overs);
+  return *out.last(client, "over");
+}
+
+void a_daily_run_scores_once_and_can_be_watched() {
+  Recorder out;
+  Leaderboard board;
+  DailyBoard daily;
+  Lobby lobby(out, board, daily, 10, 1791417600.0 + 3600.0);  // 2026-10-08, 01:00 UTC
+  lobby.connect(1, "");
+  lobby.message(1, R"({"t":"hello","name":"Ada"})");
+  CHECK(out.last(1, "dailyboard").has_value());
+  CHECK(!out.last(1, "dailyboard")->get_bool("played"));
+
+  const JsonValue first = play_daily(lobby, out, 1);
+  const auto room = out.last(1, "room");
+  CHECK(room->get_string("kind") == "daily" && room->get_string("day") == "2026-10-08");
+  const JsonValue* result = first.find("daily");
+  CHECK(result != nullptr && result->get_bool("scored") && result->get_number("place", -1) == 0);
+  const std::string id(result->get_string("replay"));
+  CHECK(!id.empty());
+  CHECK(first.get_number("levels") >= 1);  // it cleared a level, so the replay crosses a card pick
+  CHECK(out.last(1, "dailyboard")->get_bool("played"));
+  CHECK(out.count(1, "ghost") == 0);  // nobody to chase on the first run of the day
+
+  // The stored replay plays the very same run.
+  const Replay* replay = daily.replay(id);
+  CHECK(replay != nullptr);
+  if (replay == nullptr) return;
+  CHECK(replay->seed == daily_seed("2026-10-08"));
+  auto again = play_replay(*replay, 30 * 60 * 30);
+  CHECK(again->phase() == Phase::GameOver);
+  CHECK(again->levels_cleared() == static_cast<int>(first.get_number("levels", -1)));
+  CHECK(again->total_tally(0).kills == daily.best("2026-10-08")->kills);
+
+  // A second run that day is practice, with the best run as a ghost.
+  lobby.message(1, R"({"t":"leave"})");
+  const JsonValue second = play_daily(lobby, out, 1);
+  CHECK(!second.find("daily")->get_bool("scored"));
+  CHECK(out.count(1, "ghost") > 0);
+  CHECK(out.last(1, "ghost")->get_string("name") == "Ada");
+
+  // Someone else watches the replay to its end.
+  lobby.connect(2, "Bo");
+  lobby.message(2, R"({"t":"watch","replay":")" + id + R"("})");
+  const auto watching = out.last(2, "room");
+  CHECK(watching.has_value() && watching->get_string("kind") == "replay" && watching->get_string("replayOf") == "Ada");
+  lobby.message(2, R"({"t":"in","x":3,"f":true})");  // a watcher has no cannon
+  for (int i = 0; i < 900 && out.count(2, "over") == 0; ++i) run(lobby, 1.0);
+  const auto shown = out.last(2, "over");
+  CHECK(shown.has_value() && shown->get_number("levels", -1) == first.get_number("levels", -2));
+  CHECK(shown->get_string("replayOf") == "Ada");
+
+  lobby.message(2, R"({"t":"watch","replay":"2026-10-08-nothere"})");
+  CHECK(out.last(2, "error").has_value());
 }
 
 }  // namespace
@@ -241,5 +322,6 @@ int main() {
   the_host_role_moves_on_and_empty_rooms_close();
   a_lost_campaign_reaches_the_leaderboard();
   floods_are_dropped();
+  a_daily_run_scores_once_and_can_be_watched();
   return check::finish("lobby_test");
 }

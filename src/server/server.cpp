@@ -70,10 +70,11 @@ Server::Server(ServerConfig config) : config_(std::move(config)) {
     board_path = config_.data_dir + "/leaderboard.tsv";
   }
   board_ = std::make_unique<net::Leaderboard>(board_path);
+  daily_ = std::make_unique<net::DailyBoard>(config_.data_dir);
   std::random_device entropy;
   const std::uint64_t seed = (static_cast<std::uint64_t>(entropy()) << 32U) ^ entropy() ^
                              static_cast<std::uint64_t>(unix_seconds() * 1000.0);
-  lobby_ = std::make_unique<net::Lobby>(*this, *board_, seed, unix_seconds());
+  lobby_ = std::make_unique<net::Lobby>(*this, *board_, *daily_, seed, unix_seconds());
 }
 
 Server::~Server() {

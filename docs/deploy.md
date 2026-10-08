@@ -65,7 +65,7 @@ On the production host, in the runtime directory `/srv/stacks/mob-survivor-game/
 | Path | What |
 | --- | --- |
 | `state/tailscale/` | the node identity of `mob-survivor` (keep it, or the node must be re-joined with a new auth key) |
-| `state/game/` | the leaderboard (hall of fame), owned by uid 65532 |
+| `state/game/` | the hall of fame (`leaderboard.tsv`), the daily boards (`daily.tsv`, the last 7 days) and their best runs' replays (`replays/`, at most 10 a day, a few hundred KB at most each), owned by uid 65532 |
 | `.env` | the image pin, and `TS_AUTHKEY`, which the deploy blanks once the node has joined |
 | `compose.yaml`, `serve.json`, `stack.toml` | the materialised copy of `deploy/stack/` at the live commit |
 | `.deployed.json`, `.deployed/prev/` | the live record and the previous set, for rollback |

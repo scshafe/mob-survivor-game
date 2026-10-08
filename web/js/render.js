@@ -729,6 +729,24 @@ export class Renderer {
   drawCannons(view, frame) {
     const ctx = this.ctx;
     const s = this.scale;
+    // The daily ghost: a faint cannon where the day's best run was aiming.
+    if (frame.ghost) {
+      const x = this.sx(frame.ghost.x);
+      const y = this.sy(this.cannonOffset);
+      ctx.globalAlpha = 0.35;
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = Math.max(1.5, s * 0.08);
+      ctx.setLineDash([s * 0.25, s * 0.2]);
+      roundRect(ctx, x - s * 0.95, y - s * 0.55, s * 1.9, s * 1.1, s * 0.35);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = `${Math.max(10, s * 0.7)}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText('👻', x, y - this.screenUp(0) * s * 1.2);
+      ctx.globalAlpha = 1;
+    }
     for (const cannon of view.cannons) {
       const mine = cannon.slot === frame.mySlot;
       const x = this.sx(mine && frame.localX != null ? frame.localX : cannon.x);

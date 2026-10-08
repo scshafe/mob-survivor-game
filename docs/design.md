@@ -120,6 +120,19 @@ then the field).
   cards (rapid fire, lucky charm, quick charge, heavy giants, demolitions,
   sprinters, fortify). Some stack. No card adds mobs to a volley or to a
   gate: extra mobs a volley come only from power-ups, within a level.
+- **Daily challenge** (solo): everyone who plays on a UTC day gets the same
+  campaign, seeded from the date. A name's first finished run that day goes
+  on the day's board (best levels, then kills); later runs are practice. A
+  practice run races a 👻 ghost: the day's best run, re-simulated alongside
+  from its replay, shown as a faint cannon and its progress. The server keeps
+  seven days of boards and the replays of each day's top ten. Names are not
+  accounts, so "one scored run" holds only as far as names do.
+- **Replays**: a match is deterministic, so a run is stored as its players'
+  inputs and the tick each arrived at (aims rounded to hundredths, and aims
+  that change nothing left out): a few hundred inputs a minute from a steady
+  player, up to about a thousand from one who never stops moving (tens of KB). Watching one (▶ on the daily board) plays it back on the server and
+  streams it like a live match; a test re-simulates recorded runs and checks
+  they end the same.
 - **Versus** (1v1 or 2v2, bots fill empty seats): a point-symmetric arena,
   so both sides meet the same gates in the same order. Bases have 4600 health
   (+2000 per extra player on the larger side). At 2:30 the **Frenzy** makes
@@ -137,6 +150,7 @@ then the field).
 - Sliding gates, `/2` gates, shared gates, fuse, runner and armor gates, saw
   blades, and named layouts (hourglass, twin lanes, conveyor, teleporters).
 - Boss levels, the versus Frenzy, emotes and a hall of fame.
+- A daily challenge with replays and a ghost of the day's best run.
 
 ## Balance
 
