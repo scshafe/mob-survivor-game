@@ -2,4 +2,5 @@ build/
 .cache/
 compile_commands.json
 deploy/stack/.env
+deploy/tailnet/.env
 __pycache__/

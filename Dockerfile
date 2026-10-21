@@ -7,7 +7,7 @@
 # Both stages use the same Debian base (pinned by digest), so the runtime's
 # libstdc++ matches the compiler's.
 
-FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a AS build
+FROM debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS build
 RUN apt-get update \
     && apt-get install -y --no-install-recommends g++ cmake make python3 \
     && rm -rf /var/lib/apt/lists/*
@@ -21,7 +21,7 @@ RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
     && cmake --build build --parallel \
     && ctest --test-dir build --output-on-failure
 
-FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+FROM debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
 LABEL org.opencontainers.image.title="Mob Survivor" \
       org.opencontainers.image.description="Multiplayer mob-shooting web game: server and web client" \
       org.opencontainers.image.source="https://github.com/scshafe/mob-survivor-game"
